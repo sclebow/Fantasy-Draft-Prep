@@ -173,7 +173,7 @@ def calculate_position_rankings(df):
     unique_positions = df["POS"].unique()
     df_pos_list = []
     for pos in unique_positions:
-        df_pos = df[df["POS"] == pos]
+        df_pos = df[df["POS"] == pos].copy()
         df_pos["FPTS_Rank"] = df_pos["FPTS"].rank(ascending=False)
         df_pos_list.append(df_pos)
 
@@ -181,15 +181,15 @@ def calculate_position_rankings(df):
 
 def calculate_vorp(df, ROSTER_SPOTS_PER_POSITION_DICT, NUMBER_OF_TEAMS):
     positions = df["POS"].unique().tolist()
-    print(f"Processing positions: {positions}")
+    # print(f"Processing positions: {positions}")
     table_dfs = []
     for table_position in positions:
-        print(f"Processing position: {table_position}")
-        df_position = df[df["POS"] == table_position]
+        # print(f"Processing position: {table_position}")
+        df_position = df[df["POS"] == table_position].copy()
         starter_count = ROSTER_SPOTS_PER_POSITION_DICT.get(table_position).get("starters")
         likely_on_bench = ROSTER_SPOTS_PER_POSITION_DICT.get(table_position).get("likely_benched")
         available_spots = starter_count + likely_on_bench
-        print(f"Available spots for {table_position}: {available_spots}")
+        # print(f"Available spots for {table_position}: {available_spots}")
 
         total_players_on_rosters_in_league = available_spots * NUMBER_OF_TEAMS
 
@@ -212,14 +212,14 @@ combined_data = calculate_vorp(combined_data, ROSTER_SPOTS_PER_POSITION_DICT, NU
 
 def calculate_vobp(df, ROSTER_SPOTS_PER_POSITION_DICT, NUMBER_OF_TEAMS):
     positions = df["POS"].unique().tolist()
-    print(f"Processing positions: {positions}")
+    # print(f"Processing positions: {positions}")
     table_dfs = []
     for table_position in positions:
-        print(f"Processing position: {table_position}")
-        df_position = df[df["POS"] == table_position]
+        # print(f"Processing position: {table_position}")
+        df_position = df[df["POS"] == table_position].copy()
         starter_count = ROSTER_SPOTS_PER_POSITION_DICT.get(table_position).get("starters")
         available_spots = starter_count
-        print(f"Available spots for {table_position}: {available_spots}")
+        # print(f"Available spots for {table_position}: {available_spots}")
 
         total_players_on_rosters_in_league = available_spots * NUMBER_OF_TEAMS
 
@@ -246,6 +246,9 @@ combined_data = combined_data.rename(columns={"AVG": "ADP"})
 
 # Replace NaN values with inf
 combined_data = combined_data.replace({np.nan: float("inf")})
+
+# Add Drafted column (default False)
+combined_data["Drafted"] = False
 
 def calculate_value_against_adp(df):
     df["VORP_Rank"] = df["VORP"].rank(ascending=False)
@@ -301,17 +304,38 @@ with main_tabs[0]:
             st.dataframe(combined_data[combined_data["POS"] == position].sort_values(by="FPTS_Rank"), hide_index=True)
 
 with main_tabs[1]:
+
     st.header("Live Draft")
     st.write("This is where we track the live draft.")
 
-    vorp_df = combined_data[["Player", "POS", "VORP", "VORP_Rank", "VORP_Value_Against_ADP"]]
-    vobb_df = combined_data[["Player", "POS", "VOBP", "VOBP_Rank", "VOBP_Value_Against_ADP"]]
+    # Multiselect for drafted players
+    drafted_players = st.multiselect(
+        "Mark players as drafted:",
+        options=combined_data["Player"].tolist(),
+        default=[]
+    )
+    # Mark drafted players in the DataFrame
+    combined_data["Drafted"] = combined_data["Player"].isin(drafted_players)
+
+    vorp_df = combined_data[["Player", "POS", "VORP", "VORP_Rank", "VORP_Value_Against_ADP", "Drafted"]]
+    vobb_df = combined_data[["Player", "POS", "VOBP", "VOBP_Rank", "VOBP_Value_Against_ADP", "Drafted"]]
+
+    # Highlight drafted players in yellow
+    def highlight_drafted(row):
+        color = "background-color: yellow" if row["Drafted"] else ""
+        return [color] * len(row)
 
     cols = st.columns(2)
     with cols[0]:
         st.subheader("VORP")
-        st.dataframe(vorp_df.sort_values(by="VORP", ascending=False), hide_index=True)
+        st.dataframe(
+            vorp_df.sort_values(by="VORP", ascending=False).style.apply(highlight_drafted, axis=1),
+            hide_index=True
+        )
 
     with cols[1]:
         st.subheader("VOBP")
-        st.dataframe(vobb_df.sort_values(by="VOBP", ascending=False), hide_index=True)
+        st.dataframe(
+            vobb_df.sort_values(by="VOBP", ascending=False).style.apply(highlight_drafted, axis=1),
+            hide_index=True
+        )
