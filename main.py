@@ -61,6 +61,8 @@ ROSTER_SPOTS_PER_POSITION_DICT = {
 
 NUMBER_OF_TEAMS = 10
 
+HEAD_COUNT = 5
+
 # Load data
 dst_data = pd.read_csv("./data_tables/FantasyPros_Fantasy_Football_Projections_DST.csv")
 flx_data = pd.read_csv("./data_tables/FantasyPros_Fantasy_Football_Projections_FLX.csv")
@@ -342,24 +344,53 @@ with main_tabs[1]:
         )
 
     cols = st.columns(3)
-
+    
     with cols[0]:
-        st.markdown("### Top 5 VORP Available")
+        st.markdown(f"### Top {HEAD_COUNT} ADP Available")
+        top_adp = combined_data[~combined_data["Drafted"]].sort_values(by="ADP", ascending=True).head(HEAD_COUNT)
+        top_adp = top_adp[["Player", "POS", "ADP"]]
         st.dataframe(
-            vorp_df[~vorp_df["Drafted"]].sort_values(by="VORP", ascending=False).head(5),
+            top_adp,
             hide_index=True
         )
 
     with cols[1]:
-        st.markdown("### Top 5 VOBP Available")
+        st.markdown(f"### Top {HEAD_COUNT} VORP Available")
+        top_vorp = vorp_df[~vorp_df["Drafted"]].sort_values(by="VORP", ascending=False).head(HEAD_COUNT)
+        top_vorp = top_vorp[["Player", "POS", "VORP"]]
         st.dataframe(
-            vobb_df[~vobb_df["Drafted"]].sort_values(by="VOBP", ascending=False).head(5),
+            top_vorp,
             hide_index=True
         )
 
     with cols[2]:
-        st.markdown("### Top 5 ADP Available")
+        st.markdown(f"### Top {HEAD_COUNT} VOBP Available")
+        top_vobb = vobb_df[~vobb_df["Drafted"]].sort_values(by="VOBP", ascending=False).head(HEAD_COUNT)
+        top_vobb = top_vobb[["Player", "POS", "VOBP"]]
         st.dataframe(
-            combined_data[~combined_data["Drafted"]].sort_values(by="ADP", ascending=True).head(5),
+            top_vobb,
             hide_index=True
         )
+
+    st.markdown("### Top Players by combined Top Metrics")
+    columns = ["Player", "In Top ADP", "In Top VORP", "In Top VOBP"]
+    combined_top_metrics = {
+        "Player": [],
+        "In Top ADP": [],
+        "In Top VORP": [],
+        "In Top VOBP": []
+    }
+
+    for player in top_adp["Player"]:
+        combined_top_metrics["Player"].append(player)
+        combined_top_metrics["In Top ADP"].append(player in top_adp["Player"].values)
+        combined_top_metrics["In Top VORP"].append(player in top_vorp["Player"].values)
+        combined_top_metrics["In Top VOBP"].append(player in top_vobb["Player"].values)
+
+    combined_top_metrics = pd.DataFrame(combined_top_metrics)
+    combined_top_metrics["Count"] = combined_top_metrics[["In Top ADP", "In Top VORP", "In Top VOBP"]].sum(axis=1)
+    combined_top_metrics = combined_top_metrics[["Player", "Count"]].sort_values(by="Count", ascending=False).head(10)
+
+    top_players = combined_top_metrics["Player"].values.tolist()
+
+    st.markdown("\n".join([f"- {player}" for player in top_players]))
