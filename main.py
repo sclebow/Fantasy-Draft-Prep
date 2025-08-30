@@ -306,7 +306,6 @@ with main_tabs[0]:
 with main_tabs[1]:
 
     st.header("Live Draft")
-    st.write("This is where we track the live draft.")
 
     # Multiselect for drafted players
     drafted_players = st.multiselect(
@@ -330,12 +329,37 @@ with main_tabs[1]:
         st.subheader("VORP")
         st.dataframe(
             vorp_df.sort_values(by="VORP", ascending=False).style.apply(highlight_drafted, axis=1),
-            hide_index=True
+            hide_index=True,
+            height=200
         )
 
     with cols[1]:
         st.subheader("VOBP")
         st.dataframe(
             vobb_df.sort_values(by="VOBP", ascending=False).style.apply(highlight_drafted, axis=1),
+            hide_index=True,
+            height=200
+        )
+
+    cols = st.columns(3)
+
+    with cols[0]:
+        st.markdown("### Top 5 VORP Available")
+        st.dataframe(
+            vorp_df[~vorp_df["Drafted"]].sort_values(by="VORP", ascending=False).head(5),
+            hide_index=True
+        )
+
+    with cols[1]:
+        st.markdown("### Top 5 VOBP Available")
+        st.dataframe(
+            vobb_df[~vobb_df["Drafted"]].sort_values(by="VOBP", ascending=False).head(5),
+            hide_index=True
+        )
+
+    with cols[2]:
+        st.markdown("### Top 5 ADP Available")
+        st.dataframe(
+            combined_data[~combined_data["Drafted"]].sort_values(by="ADP", ascending=True).head(5),
             hide_index=True
         )
