@@ -3,6 +3,7 @@
 
 import streamlit as st
 import pandas as pd
+import numpy as np
 
 print("\n" * 10)
 
@@ -65,6 +66,7 @@ dst_data = pd.read_csv("./data_tables/FantasyPros_Fantasy_Football_Projections_D
 flx_data = pd.read_csv("./data_tables/FantasyPros_Fantasy_Football_Projections_FLX.csv")
 k_data = pd.read_csv("./data_tables/FantasyPros_Fantasy_Football_Projections_K.csv")
 qb_data = pd.read_csv("./data_tables/FantasyPros_Fantasy_Football_Projections_QB.csv")
+adp_data = pd.read_csv("./data_tables/FantasyPros_2025_Overall_ADP_Rankings.csv", on_bad_lines='skip')
 
 def process_data(df):
     # Basic data cleaning and preprocessing
@@ -167,13 +169,15 @@ qb_data = qb_data[qb_data["FPTS"] > 0]
 # Calculate position rankings for all tables
 def calculate_position_rankings(df):
     df = df.copy()
-    df["Rank"] = df["FPTS"].rank(ascending=False)
-    return df
 
-dst_data = calculate_position_rankings(dst_data)
-flx_data = calculate_position_rankings(flx_data)
-k_data = calculate_position_rankings(k_data)
-qb_data = calculate_position_rankings(qb_data)
+    unique_positions = df["POS"].unique()
+    df_pos_list = []
+    for pos in unique_positions:
+        df_pos = df[df["POS"] == pos]
+        df_pos["FPTS_Rank"] = df_pos["FPTS"].rank(ascending=False)
+        df_pos_list.append(df_pos)
+
+    return pd.concat(df_pos_list, ignore_index=True)
 
 def calculate_vorp(df, ROSTER_SPOTS_PER_POSITION_DICT, NUMBER_OF_TEAMS):
     positions = df["POS"].unique().tolist()
@@ -189,7 +193,7 @@ def calculate_vorp(df, ROSTER_SPOTS_PER_POSITION_DICT, NUMBER_OF_TEAMS):
 
         total_players_on_rosters_in_league = available_spots * NUMBER_OF_TEAMS
 
-        df_position["Waiver"] = df_position["Rank"] > total_players_on_rosters_in_league
+        df_position["Waiver"] = df_position["FPTS_Rank"] > total_players_on_rosters_in_league
 
         waiver_players = df_position[df_position["Waiver"]]
         max_fpts = waiver_players["FPTS"].max() if not waiver_players.empty else 0
@@ -203,6 +207,7 @@ def calculate_vorp(df, ROSTER_SPOTS_PER_POSITION_DICT, NUMBER_OF_TEAMS):
 # Combine all data, only keeping "Player", "Team", "POS", and "FPTS"
 combined_data = pd.concat([dst_data, flx_data, k_data, qb_data], ignore_index=True)
 
+combined_data = calculate_position_rankings(combined_data)
 combined_data = calculate_vorp(combined_data, ROSTER_SPOTS_PER_POSITION_DICT, NUMBER_OF_TEAMS)
 
 def calculate_vobp(df, ROSTER_SPOTS_PER_POSITION_DICT, NUMBER_OF_TEAMS):
@@ -218,7 +223,7 @@ def calculate_vobp(df, ROSTER_SPOTS_PER_POSITION_DICT, NUMBER_OF_TEAMS):
 
         total_players_on_rosters_in_league = available_spots * NUMBER_OF_TEAMS
 
-        df_position["Bench"] = df_position["Rank"] > total_players_on_rosters_in_league
+        df_position["Bench"] = df_position["FPTS_Rank"] > total_players_on_rosters_in_league
 
         waiver_players = df_position[df_position["Bench"]]
         max_fpts = waiver_players["FPTS"].max() if not waiver_players.empty else 0
@@ -231,31 +236,82 @@ def calculate_vobp(df, ROSTER_SPOTS_PER_POSITION_DICT, NUMBER_OF_TEAMS):
 
 combined_data = calculate_vobp(combined_data, ROSTER_SPOTS_PER_POSITION_DICT, NUMBER_OF_TEAMS)
 
-combined_data = combined_data[["Player", "Team", "POS", "FPTS", "VORP", "VOBP"]]
+combined_data = combined_data[["Player", "POS", "FPTS_Rank", "FPTS", "VORP", "VOBP"]]
+
+# Merge ADP data
+combined_data = combined_data.merge(adp_data[["Player", "AVG"]], on="Player", how="left")
+
+# Rename columns for clarity
+combined_data = combined_data.rename(columns={"AVG": "ADP"})
+
+# Replace NaN values with inf
+combined_data = combined_data.replace({np.nan: float("inf")})
+
+def calculate_value_against_adp(df):
+    df["VORP_Rank"] = df["VORP"].rank(ascending=False)
+    df["VOBP_Rank"] = df["VOBP"].rank(ascending=False)
+    df["VORP_Value_Against_ADP"] = df["VORP"] - df["ADP"]
+    df["VOBP_Value_Against_ADP"] = df["VOBP"] - df["ADP"]
+    return df
+
+combined_data = calculate_value_against_adp(combined_data)
 
 # STREAMLIT UI
 st.set_page_config(page_title="Fantasy Football Draft Prep", layout="wide")
 
 main_tabs = st.tabs(["Data Overview", "Live Draft"])
 with main_tabs[0]:
-    data_tabs = st.tabs(["DST", "FLX", "K", "QB"])
+    data_tabs = st.tabs(["DST", "FLX", "K", "QB", "ADP"])
 
-with data_tabs[0]:
-    st.header("DST Input Data")
-    st.dataframe(dst_data)
+    with data_tabs[0]:
+        st.header("DST Input Data")
+        st.dataframe(dst_data)
 
-with data_tabs[1]:
-    st.header("FLX Input Data")
-    st.dataframe(flx_data)
+    with data_tabs[1]:
+        st.header("FLX Input Data")
+        st.dataframe(flx_data)
 
-with data_tabs[2]:
-    st.header("K Input Data")
-    st.dataframe(k_data)
+    with data_tabs[2]:
+        st.header("K Input Data")
+        st.dataframe(k_data)
 
-with data_tabs[3]:
-    st.header("QB Input Data")
-    st.dataframe(qb_data)
+    with data_tabs[3]:
+        st.header("QB Input Data")
+        st.dataframe(qb_data)
 
-st.markdown("---")
-st.header("Combined Player Data with Fantasy Points")
-st.dataframe(combined_data)
+    with data_tabs[4]:
+        st.header("ADP Input Data")
+        st.dataframe(adp_data)
+
+
+    st.markdown("---")
+    st.header("Combined Player Data with Fantasy Points")
+    st.dataframe(combined_data)
+
+    st.markdown("---")
+    st.header("Position Rankings")
+
+    unique_positions = combined_data["POS"].unique()
+
+    columns = st.columns(len(unique_positions))
+
+    for position, col in zip(unique_positions, columns):
+        with col:
+            st.subheader(position)
+            st.dataframe(combined_data[combined_data["POS"] == position].sort_values(by="FPTS_Rank"), hide_index=True)
+
+with main_tabs[1]:
+    st.header("Live Draft")
+    st.write("This is where we track the live draft.")
+
+    vorp_df = combined_data[["Player", "POS", "VORP", "VORP_Rank", "VORP_Value_Against_ADP"]]
+    vobb_df = combined_data[["Player", "POS", "VOBP", "VOBP_Rank", "VOBP_Value_Against_ADP"]]
+
+    cols = st.columns(2)
+    with cols[0]:
+        st.subheader("VORP")
+        st.dataframe(vorp_df.sort_values(by="VORP", ascending=False), hide_index=True)
+
+    with cols[1]:
+        st.subheader("VOBP")
+        st.dataframe(vobb_df.sort_values(by="VOBP", ascending=False), hide_index=True)
