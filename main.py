@@ -264,8 +264,8 @@ combined_data = calculate_value_against_adp(combined_data)
 # STREAMLIT UI
 st.set_page_config(page_title="Fantasy Football Draft Prep", layout="wide")
 
-main_tabs = st.tabs(["Data Overview", "Live Draft"])
-with main_tabs[0]:
+main_tabs = st.tabs(["Live Draft", "Data Overview"])
+with main_tabs[1]:
     data_tabs = st.tabs(["DST", "FLX", "K", "QB", "ADP"])
 
     with data_tabs[0]:
@@ -305,7 +305,7 @@ with main_tabs[0]:
             st.subheader(position)
             st.dataframe(combined_data[combined_data["POS"] == position].sort_values(by="FPTS_Rank"), hide_index=True)
 
-with main_tabs[1]:
+with main_tabs[0]:
 
     st.header("Live Draft")
 
