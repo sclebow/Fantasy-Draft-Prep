@@ -309,6 +309,8 @@ with main_tabs[1]:
 
     st.header("Live Draft")
 
+    combined_data.sort_values(by="ADP", inplace=True)
+
     # Multiselect for drafted players
     drafted_players = st.multiselect(
         "Mark players as drafted:",
@@ -393,4 +395,4 @@ with main_tabs[1]:
 
     top_players = combined_top_metrics["Player"].values.tolist()
 
-    st.markdown("\n".join([f"- {player}" for player in top_players]))
+    st.markdown(", ".join([f"{player}" for player in top_players]))
