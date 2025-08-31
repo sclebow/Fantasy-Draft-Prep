@@ -453,7 +453,7 @@ with main_tabs[2]:
     with cols[1]:
         st.session_state["espn_year"] = st.number_input("Enter your ESPN Year:", value=datetime.now().year)
 
-    @st.cache_data
+    @st.cache_data(ttl=3600)  # Cache for 1 hour
     def get_league():
         return football.League(st.session_state["espn_league_id"], st.session_state["espn_year"])
     league = get_league()
