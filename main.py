@@ -522,14 +522,24 @@ with main_tabs[2]:
 
     unique_positions = free_agents_week_df["position"].unique()
 
-    league.load_roster_week(week=week_number)
-    selected_team_roster = st.session_state["selected_team"].roster
+    box_scores = league.box_scores(week=week_number)
+
+    selected_roster = None
+    for box_score in box_scores:
+        if box_score.home_team.team_id == st.session_state["selected_team"].team_id:
+            selected_roster = box_score.home_lineup
+            break
+        elif box_score.away_team.team_id == st.session_state["selected_team"].team_id:
+            selected_roster = box_score.away_lineup
+            break
+    st.write(f"Your Team's Roster for Week {week_number}:")
+    
     roster_dict = {}
-    for player in selected_team_roster:
+    for player in selected_roster:
         roster_dict[player.name] = player.__dict__
     roster_df = pd.DataFrame.from_dict(roster_dict, orient="index")
+    roster_df = roster_df[["name", "projected_points", "position", "posRank", "proTeam", "injuryStatus"]]
     st.dataframe(roster_df, hide_index=True)
-
 
     cols = st.columns(len(unique_positions))
 
@@ -537,4 +547,13 @@ with main_tabs[2]:
         with col:
             st.subheader(pos)
             st.dataframe(free_agents_week_df[free_agents_week_df["position"] == pos], hide_index=True)
-            st.write(f"Most Projected Points: {free_agents_week_df[free_agents_week_df['position'] == pos]['projected_points'].max()}")
+            max_proj_points = free_agents_week_df[free_agents_week_df['position'] == pos]['projected_points'].max()
+            max_player_name = free_agents_week_df[free_agents_week_df['position'] == pos][free_agents_week_df['position'] == pos]['name'].values[0]
+            st.write(f"Most Projected Points: {max_proj_points}\n({max_player_name})")
+
+            roster_position_df = roster_df[roster_df["position"] == pos]
+            roster_position_df["potential_improvement"] = max_proj_points - roster_position_df["projected_points"]
+            roster_position_df = roster_position_df[roster_position_df["potential_improvement"] > 0]
+
+            st.markdown(f"###### Potential Improvement:")
+            st.dataframe(roster_position_df, hide_index=True)
