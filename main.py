@@ -354,6 +354,7 @@ with main_tabs[0]:
     # Mark drafted players in the DataFrame
     combined_data["Drafted"] = combined_data["Player"].isin(drafted_players)
 
+    adp_df = combined_data[["Player", "POS", "ADP", "Drafted"]]
     vorp_df = combined_data[["Player", "POS", "VORP", "VORP_Rank", "VORP_Value_Against_ADP", "Drafted"]]
     vobb_df = combined_data[["Player", "POS", "VOBP", "VOBP_Rank", "VOBP_Value_Against_ADP", "Drafted"]]
 
@@ -362,8 +363,20 @@ with main_tabs[0]:
         color = "background-color: yellow" if row["Drafted"] else ""
         return [color] * len(row)
 
-    cols = st.columns(2)
+    cols = st.columns(3)
     with cols[0]:
+        st.subheader("ADP")
+
+        # Format the ADP column
+        adp_df["ADP"] = adp_df["ADP"].map("{:,.2f}".format)
+
+        st.dataframe(
+            adp_df.sort_values(by="ADP", ascending=True).style.apply(highlight_drafted, axis=1),
+            hide_index=True,
+            height=200
+        )
+
+    with cols[1]:
         st.subheader("VORP")
         st.dataframe(
             vorp_df.sort_values(by="VORP", ascending=False).style.apply(highlight_drafted, axis=1),
@@ -371,7 +384,7 @@ with main_tabs[0]:
             height=200
         )
 
-    with cols[1]:
+    with cols[2]:
         st.subheader("VOBP")
         st.dataframe(
             vobb_df.sort_values(by="VOBP", ascending=False).style.apply(highlight_drafted, axis=1),
