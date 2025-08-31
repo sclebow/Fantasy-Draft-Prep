@@ -434,7 +434,7 @@ with main_tabs[0]:
 with main_tabs[2]:
     st.header("Free Agents in your ESPN League")
 
-    cols = st.columns(3)
+    cols = st.columns(5)
     with cols[0]:
         st.session_state["espn_league_id"] = st.number_input("Enter your ESPN League ID:", value=1462856)
     with cols[1]:
@@ -448,65 +448,61 @@ with main_tabs[2]:
     with cols[2]:
         st.session_state["selected_team"] = st.selectbox("Select your team:", options=league.teams, index=7)
 
-    st.markdown("---")
+    with cols[3]:
+        week_number = st.number_input("Enter the week number:", value=league.current_week)
 
-    st.subheader("Top Free Agents For Full Season using FantasyPros Projections")
-    free_agents = list(league.free_agents(size=1000))
-    free_agent_names = []
-    for player in free_agents:
-        free_agent_names.append(player.__getattribute__("name"))
-    
-    free_agent_df = pd.DataFrame({"Player": free_agent_names})
+    with cols[4]:
+        st.markdown(f"Current Week: {league.current_week}")
 
-    # Remove " D/ST"
-    free_agent_df["Player"] = free_agent_df["Player"].str.replace(" D/ST", "", regex=False)
 
-    # Merge with combined data
-    merged_df = pd.merge(free_agent_df, combined_data, on="Player", how="left")
-    merged_df = merged_df.fillna({
-        "POS": "DST",
-    })
+    with st.expander("Top Free Agents For Full Season using FantasyPros Projections"):
+        free_agents = list(league.free_agents(size=1000))
+        free_agent_names = []
+        for player in free_agents:
+            free_agent_names.append(player.__getattribute__("name"))
+        
+        free_agent_df = pd.DataFrame({"Player": free_agent_names})
 
-    dst_data = merged_df[merged_df["POS"] == "DST"]
+        # Remove " D/ST"
+        free_agent_df["Player"] = free_agent_df["Player"].str.replace(" D/ST", "", regex=False)
 
-    # Try to fuzzy match DST players with combined data, the issue is that in the Combined Data a Team will be called "San Francisco 49ers", but in the Free Agents it will be "49ers"
-    def fuzzy_match_dst_players(dst_data, combined_data):
-        dst_teams = dst_data["Player"].values
-        combined_players = combined_data["Player"].values
-        matched_teams = []
-        for dst_team in dst_teams:
-            # Fuzzy match the team 
-            matched = None
-            for combined_player in combined_players:
-                if dst_team in combined_player and dst_team != combined_player:
-                    matched = combined_player
-                    break
-            matched_teams.append(matched)
-        return matched_teams
+        # Merge with combined data
+        merged_df = pd.merge(free_agent_df, combined_data, on="Player", how="left")
+        merged_df = merged_df.fillna({
+            "POS": "DST",
+        })
 
-    dst_data["Player"] = fuzzy_match_dst_players(dst_data, combined_data)
-    dst_data = dst_data.dropna(subset=["Player"])
-    dst_data = dst_data[["Player", "POS"]]
-    dst_data = pd.merge(dst_data, combined_data, on=["Player", "POS"], how="left")
-    dst_data = dst_data.dropna(subset=["FPTS"])
+        dst_data = merged_df[merged_df["POS"] == "DST"]
 
-    merged_df = pd.concat([merged_df[merged_df["POS"] != "DST"], dst_data], ignore_index=True)
-    merged_df.sort_values(by=["FPTS"], ascending=False, inplace=True)
+        # Try to fuzzy match DST players with combined data, the issue is that in the Combined Data a Team will be called "San Francisco 49ers", but in the Free Agents it will be "49ers"
+        def fuzzy_match_dst_players(dst_data, combined_data):
+            dst_teams = dst_data["Player"].values
+            combined_players = combined_data["Player"].values
+            matched_teams = []
+            for dst_team in dst_teams:
+                # Fuzzy match the team 
+                matched = None
+                for combined_player in combined_players:
+                    if dst_team in combined_player and dst_team != combined_player:
+                        matched = combined_player
+                        break
+                matched_teams.append(matched)
+            return matched_teams
 
-    st.dataframe(merged_df, hide_index=True)
+        dst_data["Player"] = fuzzy_match_dst_players(dst_data, combined_data)
+        dst_data = dst_data.dropna(subset=["Player"])
+        dst_data = dst_data[["Player", "POS"]]
+        dst_data = pd.merge(dst_data, combined_data, on=["Player", "POS"], how="left")
+        dst_data = dst_data.dropna(subset=["FPTS"])
 
-    st.markdown("---")
+        merged_df = pd.concat([merged_df[merged_df["POS"] != "DST"], dst_data], ignore_index=True)
+        merged_df.sort_values(by=["FPTS"], ascending=False, inplace=True)
+
+        st.dataframe(merged_df, hide_index=True)
 
     st.subheader("Top Free Agents For Week by Projected Points using ESPN Projections")
 
-    cols = st.columns(2)
-    with cols[0]:
-        week_number = st.number_input("Enter the week number:", value=league.current_week)
-
     free_agents_week = list(league.free_agents(size=1000, week=week_number))
-
-    with cols[1]:
-        st.markdown(f"Current Week: {league.current_week}")
 
     player_dict = {}
     for player in free_agents_week:
@@ -532,28 +528,34 @@ with main_tabs[2]:
         elif box_score.away_team.team_id == st.session_state["selected_team"].team_id:
             selected_roster = box_score.away_lineup
             break
-    st.write(f"Your Team's Roster for Week {week_number}:")
-    
-    roster_dict = {}
-    for player in selected_roster:
-        roster_dict[player.name] = player.__dict__
-    roster_df = pd.DataFrame.from_dict(roster_dict, orient="index")
-    roster_df = roster_df[["name", "projected_points", "position", "posRank", "proTeam", "injuryStatus"]]
-    st.dataframe(roster_df, hide_index=True)
+    with st.expander(f"Your Team's Roster for Week {week_number}:"):
+        roster_dict = {}
+        for player in selected_roster:
+            roster_dict[player.name] = player.__dict__
+        roster_df = pd.DataFrame.from_dict(roster_dict, orient="index")
+        roster_df = roster_df[["name", "projected_points", "position", "posRank", "proTeam", "injuryStatus"]]
+        st.dataframe(roster_df, hide_index=True)
 
     cols = st.columns(len(unique_positions))
 
     for col, pos in zip(cols, unique_positions):
         with col:
             st.subheader(pos)
-            st.dataframe(free_agents_week_df[free_agents_week_df["position"] == pos], hide_index=True)
+            st.dataframe(free_agents_week_df[free_agents_week_df["position"] == pos], hide_index=True, height=160)
             max_proj_points = free_agents_week_df[free_agents_week_df['position'] == pos]['projected_points'].max()
             max_player_name = free_agents_week_df[free_agents_week_df['position'] == pos][free_agents_week_df['position'] == pos]['name'].values[0]
             st.write(f"Most Projected Points: {max_proj_points}\n({max_player_name})")
 
             roster_position_df = roster_df[roster_df["position"] == pos]
-            roster_position_df["potential_improvement"] = max_proj_points - roster_position_df["projected_points"]
-            roster_position_df = roster_position_df[roster_position_df["potential_improvement"] > 0]
+            roster_position_df["improvement"] = max_proj_points - roster_position_df["projected_points"]
+            roster_position_df = roster_position_df[roster_position_df["improvement"] > 0]
+            # Count the number of players in the free agent pool that are better options than this row
+            roster_position_df["# Options"] = roster_position_df.apply(
+                lambda row: (free_agents_week_df[
+                    (free_agents_week_df["position"] == pos) &
+                    (free_agents_week_df["projected_points"] > row["projected_points"])
+                ].shape[0]), axis=1)
 
             st.markdown(f"###### Potential Improvement:")
-            st.dataframe(roster_position_df, hide_index=True)
+            improvement_df = roster_position_df[["name", "improvement", "# Options"]].sort_values(by="improvement", ascending=False)
+            st.dataframe(improvement_df, hide_index=True)
