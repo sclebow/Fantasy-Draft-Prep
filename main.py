@@ -4,6 +4,7 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
+from datetime import datetime
 
 print("\n" * 10)
 
@@ -267,7 +268,7 @@ def process_combined_data(dst_data, flx_data, k_data, qb_data, adp_data):
 # STREAMLIT UI
 st.set_page_config(page_title="Fantasy Football Draft Prep", layout="wide")
 
-main_tabs = st.tabs(["Live Draft", "Data Overview"])
+main_tabs = st.tabs(["Live Draft", "Data Overview", "Free Agents in ESPN"])
 with main_tabs[1]:
     cols = st.columns(5)
     with cols[0]:
@@ -428,3 +429,12 @@ with main_tabs[0]:
     top_players = combined_top_metrics["Player"].values.tolist()
 
     st.markdown(", ".join([f"{player}" for player in top_players]))
+
+with main_tabs[2]:
+    st.header("Free Agents in your ESPN League")
+
+    cols = st.columns(2)
+    with cols[0]:
+        st.session_state["espn_league_id"] = st.number_input("Enter your ESPN League ID:", value=1462856)
+    with cols[1]:
+        st.session_state["espn_year"] = st.number_input("Enter your ESPN Year:", value=datetime.now().year)
