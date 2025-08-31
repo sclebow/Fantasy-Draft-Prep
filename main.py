@@ -434,7 +434,7 @@ with main_tabs[0]:
 with main_tabs[2]:
     st.header("Free Agents in your ESPN League")
 
-    cols = st.columns(2)
+    cols = st.columns(3)
     with cols[0]:
         st.session_state["espn_league_id"] = st.number_input("Enter your ESPN League ID:", value=1462856)
     with cols[1]:
@@ -443,11 +443,14 @@ with main_tabs[2]:
     @st.cache_data
     def get_league():
         return football.League(st.session_state["espn_league_id"], st.session_state["espn_year"])
+    league = get_league()
+
+    with cols[2]:
+        st.session_state["selected_team"] = st.selectbox("Select your team:", options=league.teams, index=7)
 
     st.markdown("---")
 
     st.subheader("Top Free Agents For Full Season using FantasyPros Projections")
-    league = get_league()
     free_agents = list(league.free_agents(size=1000))
     free_agent_names = []
     for player in free_agents:
@@ -518,6 +521,15 @@ with main_tabs[2]:
     free_agents_week_df.sort_values("projected_points", ascending=False, inplace=True)
 
     unique_positions = free_agents_week_df["position"].unique()
+
+    league.load_roster_week(week=week_number)
+    selected_team_roster = st.session_state["selected_team"].roster
+    roster_dict = {}
+    for player in selected_team_roster:
+        roster_dict[player.name] = player.__dict__
+    roster_df = pd.DataFrame.from_dict(roster_dict, orient="index")
+    st.dataframe(roster_df, hide_index=True)
+
 
     cols = st.columns(len(unique_positions))
 
