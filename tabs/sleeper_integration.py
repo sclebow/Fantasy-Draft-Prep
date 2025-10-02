@@ -6,6 +6,10 @@ import difflib
 from plotly import graph_objects as go
 import plotly.express as px
 
+@st.cache_data(ttl=24 * 3600)  # Cache for 24 hours
+def get_all_players():
+    return Players().get_all_players()
+
 def get_player_info(player_id, all_players):
     return all_players.get(player_id)
 
@@ -30,6 +34,7 @@ def get_player_value(row, keeptradecut_df):
     if not matched_row.empty:
         return matched_row[value_column].values[0]
 
+@st.cache_data(ttl=24 * 3600)  # Cache for 24 hours
 def get_keeptradecut_dataframe(google_sheet_url, tab_name="SF"):
     # Extract the sheet ID from the URL
     sheet_id = google_sheet_url.split("/d/")[1].split("/")[0]
@@ -58,7 +63,7 @@ def sleeper_integration_tab():
     users = league.get_users()
     rosters = league.get_rosters()
 
-    all_players = Players().get_all_players()
+    all_players = get_all_players
 
     user_count = len(users)
     st.write(f"Number of users in the league: {user_count}")
