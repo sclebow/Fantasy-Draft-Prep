@@ -5,7 +5,7 @@ from espn_api import football
 
 def free_agents_espn_tab():
     combined_data = st.session_state["combined_data"]
-    
+
     st.header("Free Agents in your ESPN League")
 
     cols = st.columns(5)
@@ -87,6 +87,9 @@ def free_agents_espn_tab():
     free_agents_week_df = free_agents_week_df[["name", "projected_points", "position", "posRank", "proTeam", "injuryStatus", "percent_owned"]]
     free_agents_week_df["Count by Position"] = free_agents_week_df["position"].map(free_agents_week_df["position"].value_counts())
     free_agents_week_df = free_agents_week_df[free_agents_week_df["Count by Position"] >= 2]
+
+    # Drop rows where projected_points is less than 0.1
+    free_agents_week_df = free_agents_week_df[free_agents_week_df["projected_points"] >= 0.1]
 
     free_agents_week_df.sort_values("projected_points", ascending=False, inplace=True)
 

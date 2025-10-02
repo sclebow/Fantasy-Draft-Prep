@@ -13,7 +13,7 @@ def get_all_players():
 def get_player_info(player_id, all_players):
     return all_players.get(player_id)
 
-def get_player_value(row, keeptradecut_df):
+def get_player_value(row, keeptradecut_df, fuzzy_match=True):
     # print(f"Getting value for player_id: {row['player_id']}, name: {row['search_first_name']} {row['search_last_name']}")
     player_name = " ".join([row["search_first_name"], row["search_last_name"]])
 
@@ -24,16 +24,22 @@ def get_player_value(row, keeptradecut_df):
     # Lowercase comparison for better matching
     keeptradecut_df[name_column] = keeptradecut_df[name_column].str.lower()
 
-    # Fuzzy matching using difflib
-    player_name_lower = player_name.lower()
-    names_list = keeptradecut_df[name_column].tolist()
-    match = difflib.get_close_matches(player_name_lower, names_list, n=1, cutoff=0.9)
-    if match:
-        matched_row = keeptradecut_df[keeptradecut_df[name_column] == match[0]]
+    if fuzzy_match:
+        # Fuzzy matching using difflib
+        player_name_lower = player_name.lower()
+        names_list = keeptradecut_df[name_column].tolist()
+        match = difflib.get_close_matches(player_name_lower, names_list, n=1, cutoff=0.9)
+        if match:
+            matched_row = keeptradecut_df[keeptradecut_df[name_column] == match[0]]
+        else:
+            matched_row = pd.DataFrame()
+        if not matched_row.empty:
+            return matched_row[value_column].values[0]
+        
     else:
-        matched_row = pd.DataFrame()
-    if not matched_row.empty:
-        return matched_row[value_column].values[0]
+        matched_row = keeptradecut_df[keeptradecut_df[name_column] == player_name.lower()]
+        if not matched_row.empty:
+            return matched_row[value_column].values[0]
 
 @st.cache_data(ttl=24 * 3600)  # Cache for 24 hours
 def get_keeptradecut_dataframe(google_sheet_url, tab_name="SF"):
@@ -193,7 +199,13 @@ def sleeper_integration_tab():
     # Drop rows with missing first or last name
     undrafted_player_df = undrafted_player_df.dropna(subset=["search_first_name", "search_last_name"])
 
-    undrafted_player_df["KTC Value"] = undrafted_player_df.apply(lambda row: get_player_value(row, keeptradecut_df), axis=1)
+    # Drop rows where team is None
+    undrafted_player_df.dropna(subset=["team"], inplace=True)
+
+    # Drop rows where depth_chart_order is NaN
+    undrafted_player_df.dropna(subset=["depth_chart_order"], inplace=True)
+
+    undrafted_player_df["KTC Value"] = undrafted_player_df.apply(lambda row: get_player_value(row, keeptradecut_df, fuzzy_match=False), axis=1)
     undrafted_player_df["KTC Value"] = undrafted_player_df["KTC Value"].fillna(0)
     undrafted_player_df = undrafted_player_df.sort_values(by="KTC Value", ascending=False)
 
