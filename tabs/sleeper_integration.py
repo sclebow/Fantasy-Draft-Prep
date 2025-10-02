@@ -63,7 +63,7 @@ def sleeper_integration_tab():
     users = league.get_users()
     rosters = league.get_rosters()
 
-    all_players = get_all_players
+    all_players = get_all_players()
 
     user_count = len(users)
     st.write(f"Number of users in the league: {user_count}")
