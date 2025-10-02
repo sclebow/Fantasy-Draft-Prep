@@ -14,6 +14,7 @@ def get_player_info(player_id, all_players):
     return all_players.get(player_id)
 
 def get_player_value(row, keeptradecut_df):
+    # print(f"Getting value for player_id: {row['player_id']}, name: {row['search_first_name']} {row['search_last_name']}")
     player_name = " ".join([row["search_first_name"], row["search_last_name"]])
 
     # Player Names are in the first column of keeptradecut_df, but the name of the column is unknown
@@ -26,7 +27,7 @@ def get_player_value(row, keeptradecut_df):
     # Fuzzy matching using difflib
     player_name_lower = player_name.lower()
     names_list = keeptradecut_df[name_column].tolist()
-    match = difflib.get_close_matches(player_name_lower, names_list, n=1, cutoff=0.8)
+    match = difflib.get_close_matches(player_name_lower, names_list, n=1, cutoff=0.9)
     if match:
         matched_row = keeptradecut_df[keeptradecut_df[name_column] == match[0]]
     else:
@@ -117,7 +118,7 @@ def sleeper_integration_tab():
                 player_df = player_df.reindex(sorted(player_df.columns), axis=1)
                 st.dataframe(player_df)
 
-            columns_to_keep = ["search_first_name", "search_last_name", "fantasy_positions", "team", "number", "age", "years_exp", "depth_chart_order"]
+            columns_to_keep = ["player_id", "search_first_name", "search_last_name", "fantasy_positions", "team", "number", "age", "years_exp", "depth_chart_order"]
             player_df = player_df[columns_to_keep]
 
             # Get "KTC Value" column from keeptradecut_df
@@ -172,3 +173,31 @@ def sleeper_integration_tab():
     st.plotly_chart(fig, use_container_width=True)
     with st.expander("Comparison Data"):
         st.dataframe(comparison_df)
+
+    # Find highest value KTC players that are not on any roster
+    all_drafted_player_ids = []
+    for data in user_roster_data.values():
+        all_drafted_player_ids.extend(data["roster"]["player_id"].tolist())
+    all_drafted_player_ids = set(all_drafted_player_ids)
+
+    all_player_ids = set(all_players.keys())
+    undrafted_player_ids = all_player_ids - all_drafted_player_ids
+
+    undrafted_player_dicts = []
+    for player_id in undrafted_player_ids:
+        player_info = all_players.get(player_id)
+        undrafted_player_dicts.append(player_info)
+    undrafted_player_df = pd.DataFrame(undrafted_player_dicts)
+    undrafted_player_df = undrafted_player_df[columns_to_keep]
+
+    # Drop rows with missing first or last name
+    undrafted_player_df = undrafted_player_df.dropna(subset=["search_first_name", "search_last_name"])
+
+    undrafted_player_df["KTC Value"] = undrafted_player_df.apply(lambda row: get_player_value(row, keeptradecut_df), axis=1)
+    undrafted_player_df["KTC Value"] = undrafted_player_df["KTC Value"].fillna(0)
+    undrafted_player_df = undrafted_player_df.sort_values(by="KTC Value", ascending=False)
+
+    st.header("Top Undrafted Players by KTC Value")
+    st.dataframe(undrafted_player_df.head(20))
+    with st.expander("All Undrafted Players"):
+        st.dataframe(undrafted_player_df)
