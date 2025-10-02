@@ -4,6 +4,7 @@ from sleeper_wrapper import League, Players
 import pandas as pd
 import difflib
 from plotly import graph_objects as go
+import plotly.express as px
 
 def get_player_info(player_id, all_players):
     return all_players.get(player_id)
@@ -153,7 +154,16 @@ def sleeper_integration_tab():
     fig = go.Figure(data=[
         go.Bar(name="Total KTC Value", x=comparison_df["User"], y=comparison_df["Total KTC Value"])
     ])
-    fig.update_layout(barmode='group', title="Roster Comparison", yaxis_title="KeepTradeCut Value / Count")
+    fig.update_layout(barmode='group', title="Roster Comparison", yaxis_title="KeepTradeCut Total Roster Value")
+
+    # Use a continuous colorscale for the bars
+    colorscale = px.colors.sequential.Viridis
+    fig.update_traces(marker=dict(
+        color=comparison_df["Total KTC Value"],
+        colorscale=colorscale,
+        showscale=True
+    ))
+
     st.plotly_chart(fig, use_container_width=True)
     with st.expander("Comparison Data"):
         st.dataframe(comparison_df)
