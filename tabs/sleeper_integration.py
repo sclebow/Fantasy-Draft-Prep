@@ -213,3 +213,122 @@ def sleeper_integration_tab():
     st.dataframe(undrafted_player_df.head(20))
     with st.expander("All Undrafted Players"):
         st.dataframe(undrafted_player_df)
+
+    traded_picks = league.get_traded_picks()
+    standings = league.get_standings(rosters, users)
+
+    # standings: List of tuples (team_name, wins, losses, points_for, ...)
+    sorted_standings = sorted(
+        standings,
+        key=lambda x: (x[1], x[3]),  # x[1]=wins, x[3]=points_for
+        reverse=True
+    )
+
+    st.header("Overall League Standings")
+    standings_df = pd.DataFrame(sorted_standings, columns=["Team Name", "Wins", "Losses", "Points For"])
+    st.dataframe(standings_df)
+
+    st.header("Team Draft Picks")
+
+    st.write(traded_picks)
+
+    # Create a dataframe for all draft picks
+    # There are five rounds in the draft, and each team has one pick per round
+    # In each round, the pick order is determined by the reverse order of the standings
+    # We can track picks for each of the next three years
+    # We typically draft in mid April, so we can assume the draft year is the current year if before April, otherwise next year
+    current_year = datetime.datetime.now().year
+    if datetime.datetime.now().month < 4:
+        draft_year = current_year
+    else:
+        draft_year = current_year + 1
+
+    draft_order = []
+    for year in range(draft_year, draft_year + 4):
+        for round_num in range(1, 6):
+            for team in sorted_standings[::-1]:  # Reverse order of standings
+                team_name = team[0]
+                draft_order.append({
+                    "year": year,
+                    "round": round_num,
+                    "pick_in_round": sorted_standings[::-1].index(team) + 1,
+                    "overall_pick": (round_num - 1) * len(users) + sorted_standings[::-1].index(team) + 1,
+                    "owner_team_name": team_name,
+                    "previous_owner_team_name": None,
+                    "owner_id": next((u["user_id"] for u in users if u["metadata"]["team_name"] == team_name), None),
+                    "previous_owner_id": next((u["user_id"] for u in users if u["metadata"]["team_name"] == team_name), None),
+                    "is_traded": False
+                })
+    draft_order_df = pd.DataFrame(draft_order)
+
+    rosters = league.get_rosters()
+
+    # Mark traded picks
+    for pick in traded_picks:
+        round_num = pick["round"]
+        owner_id = pick["owner_id"]
+        previous_owner_id = pick["previous_owner_id"]
+
+        # Find the corresponding roster in rosters
+        owner_roster = next((r for r in rosters if r["roster_id"] == owner_id))
+        owner_id = owner_roster["owner_id"]
+        previous_owner_roster = next((r for r in rosters if r["roster_id"] == previous_owner_id))
+        previous_owner_id = previous_owner_roster["owner_id"]
+
+        # Find the pick in draft_order_df and update it
+        pick_index = draft_order_df[(draft_order_df["round"] == round_num) & (draft_order_df["owner_id"] == previous_owner_id)].index
+        if not pick_index.empty:
+            draft_order_df.at[pick_index[0], "owner_id"] = owner_id
+            draft_order_df.at[pick_index[0], "owner_team_name"] = next((u["metadata"]["team_name"] for u in users if u["user_id"] == owner_id), None)
+            draft_order_df.at[pick_index[0], "previous_owner_id"] = previous_owner_id
+            draft_order_df.at[pick_index[0], "previous_owner_team_name"] = next((u["metadata"]["team_name"] for u in users if u["user_id"] == previous_owner_id), None)
+            draft_order_df.at[pick_index[0], "is_traded"] = True
+
+    st.dataframe(draft_order_df)
+
+    tabs = st.tabs([team["metadata"]["team_name"] for team in users])
+    for i, team in enumerate(users):
+        with tabs[i]:
+            team_name = team["metadata"]["team_name"]
+
+            # Get the ranking of the team
+            team_ranking = next((idx + 1 for idx, s in enumerate(sorted_standings) if s[0] == team_name), None)
+            st.write(f"Team Ranking: {team_ranking}")
+
+            # Use the draft_order_df to show the picks for this team, and use KTC Value to sort the picks
+            # Picks in the early 25% of a round are "Early", the middle 50% are "Mid", and the last 25% are "Late"
+            # For example, in a 10 team league, picks 1-2 are "Early", picks 3-7 are "Mid", and picks 8-10 are "Late"
+            # This is important because the KTC data would list "2027 Early 1st" as a different player than "2027 Mid 1st" or "2027 Late 1st"
+            team_picks = draft_order_df[draft_order_df["owner_team_name"] == team_name].copy()
+            team_picks["pick_position"] = team_picks.apply(lambda row:
+                "Early" if row["pick_in_round"] <= (len(users) * 0.25) else
+                ("Late" if row["pick_in_round"] > (len(users) * 0.75) else "Mid"), axis=1)
+            def get_ordinal_suffix(n):
+                if 10 <= n % 100 <= 20:
+                    suffix = "th"
+                else:
+                    suffix = {1: "st", 2: "nd", 3: "rd"}.get(n % 10, "th")
+                return suffix
+
+            team_picks["KTC Pick Name"] = team_picks.apply(
+                lambda row: f"{row['year']} {row['pick_position']} {row['round']}{get_ordinal_suffix(row['round'])}", 
+                axis=1
+            )
+            # TODO: Value is coming back as 0 for all picks, need to debug
+            # Look up the pick values directly in the KTC dataframe
+            name_column = keeptradecut_df.columns[0]  # First column contains player/pick names
+            value_column = "Value"  # Assuming the column name for values
+            
+            # Create a function to find pick values
+            def find_pick_value(pick_name):
+                # Look for exact match in the keeptradecut dataframe
+                matched_row = keeptradecut_df[keeptradecut_df[name_column] == pick_name]
+                if not matched_row.empty:
+                    return matched_row[value_column].values[0]
+                return 0
+            
+            # Apply the function to get KTC values for picks
+            team_picks["KTC Value"] = team_picks["KTC Pick Name"].apply(find_pick_value)
+            team_picks["KTC Value"] = team_picks["KTC Value"].fillna(0)
+            team_picks = team_picks.sort_values(by="KTC Value", ascending=False)
+            st.dataframe(team_picks)
