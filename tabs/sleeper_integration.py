@@ -17,31 +17,36 @@ def get_player_info(player_id, all_players):
 
 def get_player_value(row, keeptradecut_df, fuzzy_match=True):
     # print(f"Getting value for player_id: {row['player_id']}, name: {row['search_first_name']} {row['search_last_name']}")
-    player_name = " ".join([row["search_first_name"], row["search_last_name"]])
+    player_full_name = " ".join([row["search_first_name"], row["search_last_name"]])
+    player_last_name = row["search_last_name"]
+    player_first_name = row["search_first_name"]
+    player_team = row["Team"]
 
     # Player Names are in the first column of keeptradecut_df, but the name of the column is unknown
-    name_column = keeptradecut_df.columns[0]
-    value_column = "SFValue"  # Assuming the column name is "Value"
+    ktc_name_column = keeptradecut_df.columns[0]
+    ktc_value_column = "SFValue"  # Assuming the column name is "Value"
+    ktc_team_column = "Team"
 
-    # Lowercase comparison for better matching
-    keeptradecut_df[name_column] = keeptradecut_df[name_column].str.lower()
+    # TODO: First check for players with the same last name
 
-    if fuzzy_match:
-        # Fuzzy matching using difflib
-        player_name_lower = player_name.lower()
-        names_list = keeptradecut_df[name_column].tolist()
-        match = difflib.get_close_matches(player_name_lower, names_list, n=1, cutoff=0.9)
-        if match:
-            matched_row = keeptradecut_df[keeptradecut_df[name_column] == match[0]]
-        else:
-            matched_row = pd.DataFrame()
-        if not matched_row.empty:
-            return matched_row[value_column].values[0]
+    # TODO: Then check for players on the same team, the ktc data uses three character team abbreviations, but 
+
+    # if fuzzy_match:
+    #     # Fuzzy matching using difflib
+    #     player_name_lower = player_name.lower()
+    #     names_list = keeptradecut_df[name_column].tolist()
+    #     match = difflib.get_close_matches(player_name_lower, names_list, n=1, cutoff=0.9)
+    #     if match:
+    #         matched_row = keeptradecut_df[keeptradecut_df[name_column] == match[0]]
+    #     else:
+    #         matched_row = pd.DataFrame()
+    #     if not matched_row.empty:
+    #         return matched_row[value_column].values[0]
         
-    else:
-        matched_row = keeptradecut_df[keeptradecut_df[name_column] == player_name.lower()]
-        if not matched_row.empty:
-            return matched_row[value_column].values[0]
+    # else:
+    #     matched_row = keeptradecut_df[keeptradecut_df[name_column] == player_name.lower()]
+    #     if not matched_row.empty:
+    #         return matched_row[value_column].values[0]
 
 @st.cache_data(ttl=24 * 3600)  # Cache for 24 hours
 def get_keeptradecut_dataframe():
@@ -211,6 +216,9 @@ def sleeper_integration_tab():
 
     traded_picks = league.get_traded_picks()
     standings = league.get_standings(rosters, users)
+
+    # TODO: Cast Points For to float
+
 
     # standings: List of tuples (team_name, wins, losses, points_for, ...)
     sorted_standings = sorted(
