@@ -8,6 +8,8 @@ import plotly.express as px
 
 from scraper.ktc_to_csv import scrape_ktc
 
+pd.set_option('future.no_silent_downcasting', True)
+
 @st.cache_data(ttl=24 * 3600)  # Cache for 24 hours
 def get_all_players():
     return Players().get_all_players()
@@ -20,33 +22,47 @@ def get_player_value(row, keeptradecut_df, fuzzy_match=True):
     player_full_name = " ".join([row["search_first_name"], row["search_last_name"]])
     player_last_name = row["search_last_name"]
     player_first_name = row["search_first_name"]
-    player_team = row["Team"]
+    player_team = row["team"]
+
+    if "hunter" in player_last_name.lower():
+        print(f"Looking up value for player: {player_full_name}, team: {player_team}")
 
     # Player Names are in the first column of keeptradecut_df, but the name of the column is unknown
     ktc_name_column = keeptradecut_df.columns[0]
     ktc_value_column = "SFValue"  # Assuming the column name is "Value"
     ktc_team_column = "Team"
 
-    # TODO: First check for players with the same last name
+    # Clean up player names in keeptradecut_df by stripping periods
+    keeptradecut_df[ktc_name_column] = keeptradecut_df[ktc_name_column].str.replace('.', '', regex=False).str.strip()
 
-    # TODO: Then check for players on the same team, the ktc data uses three character team abbreviations, but 
+    # Check for rows that contain the player's last name (case insensitive)
+    matched_row = keeptradecut_df[keeptradecut_df[ktc_name_column].str.contains(player_last_name, case=False, na=False)]
 
-    # if fuzzy_match:
-    #     # Fuzzy matching using difflib
-    #     player_name_lower = player_name.lower()
-    #     names_list = keeptradecut_df[name_column].tolist()
-    #     match = difflib.get_close_matches(player_name_lower, names_list, n=1, cutoff=0.9)
-    #     if match:
-    #         matched_row = keeptradecut_df[keeptradecut_df[name_column] == match[0]]
-    #     else:
-    #         matched_row = pd.DataFrame()
-    #     if not matched_row.empty:
-    #         return matched_row[value_column].values[0]
-        
-    # else:
-    #     matched_row = keeptradecut_df[keeptradecut_df[name_column] == player_name.lower()]
-    #     if not matched_row.empty:
-    #         return matched_row[value_column].values[0]
+    # Further filter by first name
+    matched_row = matched_row[matched_row[ktc_name_column].str.contains(player_first_name, case=False, na=False)]
+
+    # Test for hunter
+    if player_last_name.lower() == "hunter":
+        print("Matched rows for hunter:", matched_row)
+
+    # Check to make sure the player's first name comes before the last name in the matched rows
+    matched_row = matched_row[matched_row[ktc_name_column].str.lower().str.index(player_first_name.lower()) < matched_row[ktc_name_column].str.lower().str.index(player_last_name.lower())]
+
+    # Check that the team matches using the ktc_team_column
+    # The ktc data uses three letter team abbreviations, but sleeper uses two or three letter abbreviations, depending on the team
+    # For example, "New England Patriots" is "NE" in sleeper but "NEP" in ktc
+    # If the player's team is None, skip this filtering step
+    if player_team:
+        matched_row = matched_row[matched_row[ktc_team_column].str.contains(player_team, case=False, na=False)]
+
+    # Return the value
+    if not matched_row.empty:
+        if "hunter" in player_last_name.lower():
+            print("Matched rows after name filtering for hunter:", matched_row)
+        if not matched_row.empty:
+            return matched_row[ktc_value_column].values[0]
+        else:
+            return None
 
 @st.cache_data(ttl=24 * 3600)  # Cache for 24 hours
 def get_keeptradecut_dataframe():
@@ -218,7 +234,10 @@ def sleeper_integration_tab():
     standings = league.get_standings(rosters, users)
 
     # TODO: Cast Points For to float
-
+    for i in range(len(standings)):
+        standings[i] = list(standings[i])
+        standings[i][3] = float(standings[i][3])  # Points For
+        standings[i] = tuple(standings[i])
 
     # standings: List of tuples (team_name, wins, losses, points_for, ...)
     sorted_standings = sorted(
