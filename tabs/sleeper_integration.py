@@ -8,6 +8,41 @@ import plotly.express as px
 
 from scraper.ktc_to_csv import scrape_ktc
 
+TEAM_COLOR_MAP = {
+    "ARI": "#97233F",
+    "ATL": "#A71930",
+    "BAL": "#241773",
+    "BUF": "#00338D",
+    "CAR": "#0085CA",
+    "CHI": "#0B162A",
+    "CIN": "#FB4F14",
+    "CLE": "#311D00",
+    "DAL": "#003594",
+    "DEN": "#002244",
+    "DET": "#0076B6",
+    "GB": "#203731",
+    "HOU": "#03202F",
+    "IND": "#002C5F",
+    "JAX": "#006778",
+    "KC": "#E31837",
+    "LAC": "#002A5E",
+    "LAR": "#003594",
+    "LV": "#000000",
+    "MIA": "#008E97",
+    "MIN": "#4F2683",
+    "NE": "#002244",
+    "NO": "#D3BC8D",
+    "NYG": "#0B2265",
+    "NYJ": "#125740",
+    "PHI": "#004C54",
+    "PIT": "#FFB612",
+    "SF": "#AA0000",
+    "SEA": "#002244",
+    "TB": "#D50A0A",
+    "TEN": "#4B92DB",
+    "WAS": "#5A1414"
+}
+
 pd.set_option('future.no_silent_downcasting', True)
 
 @st.cache_data(ttl=24 * 3600)  # Cache for 24 hours
@@ -312,23 +347,66 @@ def sleeper_integration_tab():
     # Sort by Total KTC Value descending
     comparison_df = comparison_df.sort_values(by="Total KTC Value", ascending=False)
 
-    # Create a chart to compare total KTC values
+    # Create a stacked bar chart using plotly, that shows total KTC value for each user, with player value and draft pick value as different colors
     fig = go.Figure(data=[
-        go.Bar(name="Total KTC Value", x=comparison_df["User"], y=comparison_df["Total KTC Value"])
+        go.Bar(name="Player KTC Value", x=comparison_df["User"], y=comparison_df["Player KTC Value"]),
+        go.Bar(name="Draft Picks KTC Value", x=comparison_df["User"], y=comparison_df["Draft Picks KTC Value"])
     ])
-    fig.update_layout(barmode='group', title="Roster Comparison", yaxis_title="KeepTradeCut Total Roster Value")
-
-    # Use a continuous colorscale for the bars
-    colorscale = px.colors.sequential.Viridis
-    fig.update_traces(marker=dict(
-        color=comparison_df["Total KTC Value"],
-        colorscale=colorscale,
-        showscale=True
-    ))
+    fig.update_layout(barmode='stack', title="Roster Comparison", yaxis_title="KeepTradeCut Total Roster Value")
 
     st.plotly_chart(fig, use_container_width=True)
     with st.expander("Comparison Data"):
         st.dataframe(comparison_df)
+
+    # Create a pie chart showing the distribution of KTC value per player for all teams
+    tabs = st.tabs([user for user in user_roster_data.keys()])
+    for i, user in enumerate(user_roster_data.keys()):
+        with tabs[i]:
+            data = user_roster_data[user]
+            roster = data["roster"]
+            if roster.empty:
+                st.write("No players in roster")
+                continue
+
+            cols = st.columns(2)
+            with cols[0]:
+                # Create a sunburst chart (stacked pie) with inner layer as position, outer as player
+                # Use the first fantasy position listed for each player
+                roster["fantasy_positions"] = roster["fantasy_positions"].apply(lambda x: x[0] if isinstance(x, list) and len(x) > 0 else "N/A")
+                fig = px.sunburst(
+                    roster,
+                    path=["fantasy_positions", "search_last_name"],
+                    values="KTC Value",
+                    title=f"KTC Value Distribution for {user} (Position → Player)"
+                )
+
+                # Add percentage to labels
+                total_value = roster["KTC Value"].sum()
+                fig.update_traces(textinfo="label+percent entry", hovertemplate='%{label}<br>KTC Value: %{value}<br>Percentage of Total: %{percentParent:.2%}<extra></extra>')                
+
+                fig.update_layout(margin=dict(t=40, l=0, r=0, b=0))
+
+                st.plotly_chart(fig, use_container_width=True)
+            with cols[1]:
+                # Create a sunburst chart (stacked pie) with inner layer as team, outer as player
+                roster["team"] = roster["team"].fillna("N/A")
+                fig = px.sunburst(
+                    roster,
+                    path=["team", "search_last_name"],
+                    values="KTC Value",
+                    title=f"KTC Value Distribution for {user} (Team → Player)",
+                    color="team",
+                    color_discrete_map=TEAM_COLOR_MAP
+                )
+
+                # Add percentage to labels
+                total_value = roster["KTC Value"].sum()
+                fig.update_traces(textinfo="label+percent entry", hovertemplate='%{label}<br>KTC Value: %{value}<br>Percentage of Total: %{percentParent:.2%}<extra></extra>')
+                fig.update_layout(margin=dict(t=40, l=0, r=0, b=0))
+
+                st.plotly_chart(fig, use_container_width=True)
+            with st.expander("Roster Data"):
+                st.dataframe(roster)
 
     # Find highest value KTC players that are not on any roster
     all_drafted_player_ids = []

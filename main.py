@@ -10,12 +10,16 @@ print("\n" * 10)
 # STREAMLIT UI
 st.set_page_config(page_title="Fantasy Football Draft Prep", layout="wide")
 
-sleeper_only_mode = st.sidebar.checkbox("Sleeper Only Mode", value=True)
+mode_options = [
+        "Sleeper Integration Only Mode",
+        "Draft Mode", 
+    ]
+selected_mode = st.sidebar.selectbox("Select Mode", mode_options)
 
-if sleeper_only_mode:
+if selected_mode == "Sleeper Integration Only Mode":
     sleeper_integration.sleeper_integration_tab()
 
-else:
+elif selected_mode == "Draft Mode":
     main_tabs = st.tabs(["Live Draft", "Data Overview", "Free Agents in ESPN", "Sleeper Integration"])
     with main_tabs[1]:
         data_overview.data_overview_tab()
@@ -25,6 +29,3 @@ else:
 
     with main_tabs[2]:
         free_agents_espn.free_agents_espn_tab()
-
-    with main_tabs[3]:
-        sleeper_integration.sleeper_integration_tab()
