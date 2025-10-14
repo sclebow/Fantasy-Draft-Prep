@@ -94,11 +94,6 @@ def sleeper_integration_tab():
     user_count = len(users)
     st.write(f"Number of users in the league: {user_count}")
 
-    default_user = "sclebow"
-
-    # Reorder users to have the default user first
-    users = sorted(users, key=lambda x: x["display_name"] != default_user)
-
     # Get standings and traded picks data first (needed for draft picks calculation)
     traded_picks = league.get_traded_picks()
     standings = league.get_standings(rosters, users)
@@ -114,6 +109,15 @@ def sleeper_integration_tab():
         key=lambda x: (x[1], x[3]),  # x[1]=wins, x[3]=points_for
         reverse=True
     )
+
+    st.header("Overall League Standings")
+    standings_df = pd.DataFrame(sorted_standings, columns=["Team Name", "Wins", "Losses", "Points For"])
+    st.dataframe(standings_df)
+
+    default_user = "sclebow"
+
+    # Reorder users to have the default user first
+    users = sorted(users, key=lambda x: x["display_name"] != default_user)
 
     # Calculate draft picks for all teams (needed for roster tabs)
     current_year = datetime.datetime.now().year
@@ -359,8 +363,4 @@ def sleeper_integration_tab():
     st.dataframe(undrafted_player_df.head(20))
     with st.expander("All Undrafted Players"):
         st.dataframe(undrafted_player_df)
-
-    st.header("Overall League Standings")
-    standings_df = pd.DataFrame(sorted_standings, columns=["Team Name", "Wins", "Losses", "Points For"])
-    st.dataframe(standings_df)
 
