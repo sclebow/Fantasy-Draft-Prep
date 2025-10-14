@@ -21,7 +21,7 @@ def get_player_value(row, keeptradecut_df, fuzzy_match=True):
 
     # Player Names are in the first column of keeptradecut_df, but the name of the column is unknown
     name_column = keeptradecut_df.columns[0]
-    value_column = "Value"  # Assuming the column name is "Value"
+    value_column = "SFValue"  # Assuming the column name is "Value"
 
     # Lowercase comparison for better matching
     keeptradecut_df[name_column] = keeptradecut_df[name_column].str.lower()
@@ -312,7 +312,7 @@ def sleeper_integration_tab():
             # TODO: Value is coming back as 0 for all picks, need to debug
             # Look up the pick values directly in the KTC dataframe
             name_column = keeptradecut_df.columns[0]  # First column contains player/pick names
-            value_column = "Value"  # Assuming the column name for values
+            value_column = "SFValue"  # Assuming the column name for values
             
             # Create a function to find pick values
             def find_pick_value(pick_name):
