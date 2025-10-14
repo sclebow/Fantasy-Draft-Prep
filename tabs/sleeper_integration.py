@@ -6,6 +6,8 @@ import difflib
 from plotly import graph_objects as go
 import plotly.express as px
 
+from scraper.ktc_to_csv import scrape_ktc
+
 @st.cache_data(ttl=24 * 3600)  # Cache for 24 hours
 def get_all_players():
     return Players().get_all_players()
@@ -43,12 +45,15 @@ def get_player_value(row, keeptradecut_df, fuzzy_match=True):
 
 @st.cache_data(ttl=24 * 3600)  # Cache for 24 hours
 def get_keeptradecut_dataframe(google_sheet_url, tab_name="SF"):
-    # Extract the sheet ID from the URL
-    sheet_id = google_sheet_url.split("/d/")[1].split("/")[0]
-    csv_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq?tqx=out:csv&sheet={tab_name}"
+    # # Extract the sheet ID from the URL
+    # sheet_id = google_sheet_url.split("/d/")[1].split("/")[0]
+    # csv_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq?tqx=out:csv&sheet={tab_name}"
     
-    # Read the CSV data into a DataFrame
-    df = pd.read_csv(csv_url)
+    # # Read the CSV data into a DataFrame
+    # df = pd.read_csv(csv_url)
+    ktc_data = scrape_ktc()
+    df = pd.DataFrame(ktc_data)
+
     return df
 
 def sleeper_integration_tab():
