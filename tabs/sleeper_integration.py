@@ -24,6 +24,9 @@ def get_player_value(row, keeptradecut_df, fuzzy_match=True):
     player_first_name = row["search_first_name"]
     player_team = row["team"]
 
+    if player_team == "JAX":
+        player_team = "JAC"  # KTC uses JAC for Jacksonville
+
     if "hunter" in player_last_name.lower():
         print(f"Looking up value for player: {player_full_name}, team: {player_team}")
 
@@ -233,7 +236,6 @@ def sleeper_integration_tab():
     traded_picks = league.get_traded_picks()
     standings = league.get_standings(rosters, users)
 
-    # TODO: Cast Points For to float
     for i in range(len(standings)):
         standings[i] = list(standings[i])
         standings[i][3] = float(standings[i][3])  # Points For
@@ -336,7 +338,6 @@ def sleeper_integration_tab():
                 lambda row: f"{row['year']} {row['pick_position']} {row['round']}{get_ordinal_suffix(row['round'])}", 
                 axis=1
             )
-            # TODO: Value is coming back as 0 for all picks, need to debug
             # Look up the pick values directly in the KTC dataframe
             name_column = keeptradecut_df.columns[0]  # First column contains player/pick names
             value_column = "SFValue"  # Assuming the column name for values
