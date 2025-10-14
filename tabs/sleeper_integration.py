@@ -44,13 +44,7 @@ def get_player_value(row, keeptradecut_df, fuzzy_match=True):
             return matched_row[value_column].values[0]
 
 @st.cache_data(ttl=24 * 3600)  # Cache for 24 hours
-def get_keeptradecut_dataframe(google_sheet_url, tab_name="SF"):
-    # # Extract the sheet ID from the URL
-    # sheet_id = google_sheet_url.split("/d/")[1].split("/")[0]
-    # csv_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq?tqx=out:csv&sheet={tab_name}"
-    
-    # # Read the CSV data into a DataFrame
-    # df = pd.read_csv(csv_url)
+def get_keeptradecut_dataframe():
     ktc_data = scrape_ktc()
     df = pd.DataFrame(ktc_data)
 
@@ -62,12 +56,8 @@ def sleeper_integration_tab():
     cols = st.columns(3)
     with cols[0]:
         sleeper_league_id = st.text_input("Enter your Sleeper League ID:", value="1180366350202068992")
-    with cols[1]:
-        keeptradecut_google_sheet_url = st.text_input("Enter your KeepTradeCut Google Sheet URL:", value="https://docs.google.com/spreadsheets/d/1n5aqip8iFCpltO8deiS7q9m3u_dFvKTZpwzfZXVTpgs/")
-    with cols[2]:
-        tab_name = st.text_input("Enter the KeepTradeCut Tab Name:", value="SF")
 
-    keeptradecut_df = get_keeptradecut_dataframe(keeptradecut_google_sheet_url, tab_name)
+    keeptradecut_df = get_keeptradecut_dataframe()
     with st.expander("KeepTradeCut Data"):
         st.dataframe(keeptradecut_df)
     
@@ -235,7 +225,7 @@ def sleeper_integration_tab():
 
     st.header("Team Draft Picks")
 
-    st.write(traded_picks)
+    # st.write(traded_picks)
 
     # Create a dataframe for all draft picks
     # There are five rounds in the draft, and each team has one pick per round
