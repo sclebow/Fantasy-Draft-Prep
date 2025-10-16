@@ -577,7 +577,7 @@ def sleeper_integration_tab():
             # Create a game_df that counts the number of players in each game
             game_df = timeline_df.groupby("game").agg(num_players=("player_full_name", "count")).reset_index()
             game_df = game_df.merge(timeline_df[["game", "game_time", "date", "time_of_day", "home_team", "away_team"]].drop_duplicates(), on="game", how="left")
-            game_df = game_df.sort_values(by=["date", "time_of_day"])
+            game_df = game_df.sort_values(by=["date", "time_of_day", "num_players"], ascending=[True, True, False])
 
             with st.expander("Game Timeline Data"):
                 st.dataframe(game_df)
@@ -611,8 +611,5 @@ def sleeper_integration_tab():
             # Set the height of the figure based on the maximum number of players in any game
             max_players = game_df["num_players"].max()
             fig.update_layout(height=400 + max_players * 20)
-
-            # Set the width of the bars to be wider
-            fig.update_traces(width=0.4)
 
             st.plotly_chart(fig)
