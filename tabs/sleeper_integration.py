@@ -2,6 +2,7 @@ import streamlit as st
 import datetime
 from sleeper_wrapper import League, Players
 import pandas as pd
+import requests
 import difflib
 from plotly import graph_objects as go
 import plotly.express as px
@@ -62,9 +63,6 @@ def get_player_value(row, keeptradecut_df, fuzzy_match=True):
     if player_team == "JAX":
         player_team = "JAC"  # KTC uses JAC for Jacksonville
 
-    if "hunter" in player_last_name.lower():
-        print(f"Looking up value for player: {player_full_name}, team: {player_team}")
-
     # Player Names are in the first column of keeptradecut_df, but the name of the column is unknown
     ktc_name_column = keeptradecut_df.columns[0]
     ktc_value_column = "SFValue"  # Assuming the column name is "Value"
@@ -79,10 +77,6 @@ def get_player_value(row, keeptradecut_df, fuzzy_match=True):
     # Further filter by first name
     matched_row = matched_row[matched_row[ktc_name_column].str.contains(player_first_name, case=False, na=False)]
 
-    # Test for hunter
-    if player_last_name.lower() == "hunter":
-        print("Matched rows for hunter:", matched_row)
-
     # Check to make sure the player's first name comes before the last name in the matched rows
     matched_row = matched_row[matched_row[ktc_name_column].str.lower().str.index(player_first_name.lower()) < matched_row[ktc_name_column].str.lower().str.index(player_last_name.lower())]
 
@@ -95,8 +89,6 @@ def get_player_value(row, keeptradecut_df, fuzzy_match=True):
 
     # Return the value
     if not matched_row.empty:
-        if "hunter" in player_last_name.lower():
-            print("Matched rows after name filtering for hunter:", matched_row)
         if not matched_row.empty:
             return matched_row[ktc_value_column].values[0]
         else:
@@ -442,3 +434,143 @@ def sleeper_integration_tab():
     with st.expander("All Undrafted Players"):
         st.dataframe(undrafted_player_df)
 
+    # Create a calendar of upcoming NFL games with your players highlighted
+    st.header("Upcoming NFL Games Calendar with Your Players")
+    users
+    selected_team = st.selectbox("Select Team to Show Players From:", options=users, index=0)
+
+    # Get week from Sleeper NFL State endpoint
+    url = "https://api.sleeper.app/v1/state/nfl"
+    response = pd.read_json(url, typ='series')
+    week = response.get("week")
+
+    st.write(f"Current NFL Week: {week}")
+
+    # Use espn api to get NFL schedule for the week
+    @st.cache_data(ttl=24 * 3600)  # Cache for 24 hours
+    def get_nfl_schedule(current_year, week):
+        url = f"https://cdn.espn.com/core/nfl/schedule?xhr=1&year={current_year}&week={week}"
+        resp = requests.get(url)
+        if resp.status_code == 200:
+            data = resp.json()
+            return data
+        else: return None
+    schedule_data = get_nfl_schedule(current_year, week)
+    schedule_data = schedule_data["content"]["schedule"]
+
+    player_week_dict = {}
+
+    for date_string in schedule_data.keys():
+        games = schedule_data[date_string]["games"]
+        date = datetime.datetime.strptime(date_string, "%Y%m%d").date()
+        st.subheader(f"Games for {date.strftime('%A, %B %d, %Y')}")
+        data = schedule_data[date_string]
+        games_df = pd.DataFrame(games)
+
+        for game in games:
+            short_name = game["shortName"]
+            if "@" in short_name:
+                try:
+                    away_team, home_team = short_name.split(" @ ")
+                except ValueError:
+                    st.warning(f"Could not parse game short name: {short_name}")
+            elif "VS" in short_name:
+                try:
+                    home_team, away_team = short_name.split(" VS ")
+                except ValueError:
+                    st.warning(f"Could not parse game short name: {short_name}")
+            elif "vs" in short_name:
+                try:
+                    home_team, away_team = short_name.split(" vs ")
+                except ValueError:
+                    st.warning(f"Could not parse game short name: {short_name}")
+            elif "At" in short_name:
+                try:
+                    away_team, home_team = short_name.split(" At ")
+                except ValueError:
+                    st.warning(f"Could not parse game short name: {short_name}")
+            elif "at" in short_name:
+                try:
+                    away_team, home_team = short_name.split(" at ")
+                except ValueError:
+                    st.warning(f"Could not parse game short name: {short_name}")
+            else:
+                st.warning(f"Could not parse game short name: {short_name}")
+                continue
+            
+            # Show players from selected team that are on either the away or home team
+            selected_team_roster = user_roster_data[selected_team["display_name"]]["roster"]
+            players_in_game = selected_team_roster[(selected_team_roster["team"] == away_team) | (selected_team_roster["team"] == home_team)]
+            if not players_in_game.empty:
+                state = game["status"]["type"]["state"]
+                if state == "pre":
+                    status = "Scheduled"
+                elif state == "in":
+                    status = "In Progress"
+                elif state == "post":
+                    status = "Final"
+                else:
+                    status = state.capitalize()
+
+                start_time = game["date"]
+                start_time = datetime.datetime.fromisoformat(start_time.replace("Z", "+00:00"))
+                
+                # Convert start_time to local timezone
+                start_time = start_time.astimezone()
+                st.write(f"**{away_team} at {home_team}** - {status} - Start Time: {start_time.strftime('%I:%M %p %Z')}")
+
+                st.write(f"Players from {selected_team['metadata']['team_name']} in this game:")
+                st.dataframe(players_in_game)
+
+                if start_time not in player_week_dict:
+                    player_week_dict[start_time] = {}
+                player_week_dict[start_time][f"{away_team} at {home_team}"] = {
+                    "status": status,
+                    "players": players_in_game
+                }
+            else:
+                st.write(f"No players from {selected_team['metadata']['team_name']} in this game.")
+
+    if not player_week_dict:
+        st.write(f"No players from {selected_team['metadata']['team_name']} found in any games for week {week}.")
+
+    else:
+        # Using plotly to create a timeline of games with your players highlighted
+        # Y-axis is the time of day, X-axis is the day of the week
+        timeline_data = []
+        for game_time, game_info in player_week_dict.items():
+            for game, details in game_info.items():
+                for player in details["players"].to_dict(orient="records"):
+                    timeline_data.append({
+                        "player_full_name": " ".join([player["search_first_name"], player["search_last_name"]]),
+                        "game": game,
+                        "time": game_time
+                    })
+
+        if timeline_data:
+            timeline_df = pd.DataFrame(timeline_data)
+            timeline_df = timeline_df.sort_values(by="time", ascending=True)
+            
+            fig = px.scatter(
+                timeline_df,
+                x="time",
+                y="player_full_name",
+                color="game",
+                title="Game Timeline"
+            )
+
+            # Set the x-axis range to be from now to the last game time + 1 hour
+            now = datetime.datetime.now().astimezone()
+            last_game_time = max(timeline_df["time"])
+            fig.update_xaxes(range=[now, last_game_time + pd.Timedelta(hours=1)])
+
+            # Add vertical lines for each day
+            num_days = (last_game_time.date() - now.date()).days + 1
+            for day in range(num_days):
+                day_date = now.date() + datetime.timedelta(days=day)
+                day_dt = datetime.datetime.combine(day_date, datetime.time.min).astimezone()
+                fig.add_vline(x=pd.Timestamp(day_dt), line_width=1, line_dash="dash", line_color="gray")
+
+            fig.update_layout(yaxis_title="Player", xaxis_title="Game Time")
+
+            st.plotly_chart(fig, use_container_width=True)
