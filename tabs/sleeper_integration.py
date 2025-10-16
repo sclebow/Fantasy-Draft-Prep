@@ -4,12 +4,23 @@ from sleeper_wrapper import League, Players
 import pandas as pd
 import requests
 import difflib
+import pytz
 
 from plotly import graph_objects as go
 import plotly.express as px
 from plotly.subplots import make_subplots
 
 from scraper.ktc_to_csv import scrape_ktc
+
+DEFAULT_TIMEZONE = "US/Eastern"
+
+def convert_to_default_timezone(dt):
+    """Convert a datetime to the default timezone"""
+    default_tz = pytz.timezone(DEFAULT_TIMEZONE)
+    if dt.tzinfo is None:
+        # If timezone-naive, assume UTC and then convert
+        dt = pytz.utc.localize(dt)
+    return dt.astimezone(default_tz)
 
 TEAM_COLOR_MAP = {
     "ARI": "#97233F",
@@ -149,8 +160,9 @@ def sleeper_integration_tab():
     users = sorted(users, key=lambda x: x["display_name"] != default_user)
 
     # Calculate draft picks for all teams (needed for roster tabs)
-    current_year = datetime.datetime.now().year
-    if datetime.datetime.now().month < 4:
+    now_in_default_tz = convert_to_default_timezone(datetime.datetime.now(datetime.timezone.utc))
+    current_year = now_in_default_tz.year
+    if now_in_default_tz.month < 4:
         draft_year = current_year
     else:
         draft_year = current_year + 1
@@ -518,8 +530,8 @@ def sleeper_integration_tab():
                 start_time = game["date"]
                 start_time = datetime.datetime.fromisoformat(start_time.replace("Z", "+00:00"))
                 
-                # Convert start_time to local timezone
-                start_time = start_time.astimezone()
+                # Convert start_time to default timezone
+                start_time = convert_to_default_timezone(start_time)
                 st.write(f"**{away_team} at {home_team}** - {status} - Start Time: {start_time.strftime('%I:%M %p %Z')}")
 
                 st.write(f"Players from {selected_team['metadata']['team_name']} in this game:")
