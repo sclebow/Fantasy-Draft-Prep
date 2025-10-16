@@ -557,18 +557,20 @@ def sleeper_integration_tab():
             with st.expander("Game Timeline Data"):
                 st.dataframe(timeline_df)
 
-            # Create a plotly bubble chart with the date on the x-axis and time of day on the y-axis
-            # Each bubble is a game, size of bubble is number of players in that game
-            # Hovering over a bubble shows the players in that game
-            timeline_df["datetime"] = timeline_df.apply(lambda row: datetime.datetime.combine(row["date"], row["time_of_day"]), axis=1)
-            timeline_df["num_players"] = timeline_df.groupby("game")["player_full_name"].transform("count")
+            # Create a game_df that counts the number of players in each game
+            game_df = timeline_df.groupby("game").agg(num_players=("player_full_name", "count")).reset_index()
+            game_df = game_df.merge(timeline_df[["game", "date", "time_of_day", "home_team", "away_team"]].drop_duplicates(), on="game", how="left")
+            game_df = game_df.sort_values(by=["date", "time_of_day"])
 
-            fig = px.scatter(timeline_df, x="date", y="time_of_day", size="num_players", hover_name="game", hover_data=["player_full_name"], title="Game Timeline")
-            fig.update_traces(marker=dict(sizemode='diameter', opacity=0.5, line=dict(width=0.5, color='white')))
-
-            # Use TEAM_COLOR_MAP to color the bubbles based on the home team
-            fig.update_traces(marker=dict(color=timeline_df["home_team"].map(TEAM_COLOR_MAP)))
-
+            # Create a timeline heatmap using plotly
+            fig = px.density_heatmap(
+                game_df,
+                x="date",
+                y="time_of_day",
+                z="num_players",
+                color_continuous_scale="Viridis",
+                title="Game Timeline Heatmap"
+            )
             fig.update_layout(height=600)
 
             st.plotly_chart(fig)
