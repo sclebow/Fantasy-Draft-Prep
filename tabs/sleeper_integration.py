@@ -456,8 +456,13 @@ def sleeper_integration_tab():
 
     # Get week from Sleeper NFL State endpoint
     url = "https://api.sleeper.app/v1/state/nfl"
-    response = pd.read_json(url, typ='series')
-    week = response.get("week")
+    response = requests.get(url)
+    if response.status_code == 200:
+        nfl_state = response.json()
+        week = nfl_state.get("week")
+    else:
+        week = 1  # Default fallback
+        st.warning(f"Could not fetch NFL state from Sleeper API. Using default week {week}.")
 
     st.write(f"Current NFL Week: {week}")
 
