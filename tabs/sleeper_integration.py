@@ -577,9 +577,8 @@ def sleeper_integration_tab():
             with st.expander("Game Timeline Data"):
                 st.dataframe(game_df)
 
-            # # Convert game_time to categorical for better plotting
-            # game_df["game_time"] = pd.Categorical(game_df["game_time"], categories=sorted(game_df["game_time"].unique()), ordered=True)
-
+            game_df["game_time_str"] = game_df["game_time"].dt.strftime("%Y-%m-%d %I:%M %p")
+            
             # Strip all whitespace from home_team and away_team names
             game_df["home_team"] = game_df["home_team"].str.strip()
             game_df["away_team"] = game_df["away_team"].str.strip()
@@ -588,7 +587,7 @@ def sleeper_integration_tab():
             # Each bar is a datetime, with a bar for each game that day
             fig = px.bar(
                 game_df,
-                x="game_time",
+                x="game_time_str",
                 y="num_players",
                 color="game",
                 title="Number of Players in Each Game",
@@ -606,7 +605,5 @@ def sleeper_integration_tab():
             # Set the height of the figure based on the maximum number of players in any game
             max_players = game_df["num_players"].max()
             fig.update_layout(height=400 + max_players * 20)
-
-            fig.update_xaxes(constrain='category')
 
             st.plotly_chart(fig)
