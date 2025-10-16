@@ -586,4 +586,6 @@ def sleeper_integration_tab():
             max_players = game_df["num_players"].max()
             fig.update_layout(height=400 + max_players * 20)
 
+            fig.update_xaxes(constrain='domain') #
+
             st.plotly_chart(fig)
