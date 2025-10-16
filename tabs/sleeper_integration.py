@@ -548,6 +548,8 @@ def sleeper_integration_tab():
                         "game": game,
                         "date": game_time.date(),
                         "time_of_day": game_time.time(),
+                        "home_team": game.split(" at ")[1],
+                        "away_team": game.split(" at ")[0],
                     })
 
         if timeline_data:
@@ -555,49 +557,18 @@ def sleeper_integration_tab():
             with st.expander("Game Timeline Data"):
                 st.dataframe(timeline_df)
 
-            # Using subplots to create a timeline with one subplot per day
-            unique_dates = sorted(timeline_df["date"].unique())
-            fig = make_subplots(rows=1, cols=len(unique_dates), shared_xaxes=True, subplot_titles=[date.strftime("%A, %B %d, %Y") for date in unique_dates])
-            
-            # Get unique games across all dates for consistent coloring
-            unique_games = timeline_df["game"].unique()
-            color_map = px.colors.qualitative.Set1[:len(unique_games)]
-            game_color_dict = {game: color_map[i % len(color_map)] for i, game in enumerate(unique_games)}
+            # Create a plotly bubble chart with the date on the x-axis and time of day on the y-axis
+            # Each bubble is a game, size of bubble is number of players in that game
+            # Hovering over a bubble shows the players in that game
+            timeline_df["datetime"] = timeline_df.apply(lambda row: datetime.datetime.combine(row["date"], row["time_of_day"]), axis=1)
+            timeline_df["num_players"] = timeline_df.groupby("game")["player_full_name"].transform("count")
 
-            # Calculate global min/max times across all days for consistent y-axis range
-            global_min_time = timeline_df["time_of_day"].min()
-            global_max_time = timeline_df["time_of_day"].max()
-            
-            # Add some padding (1 hour before and after)
-            min_datetime = datetime.datetime.combine(datetime.date.today(), global_min_time) - datetime.timedelta(hours=1)
-            max_datetime = datetime.datetime.combine(datetime.date.today(), global_max_time) + datetime.timedelta(hours=1)
-            y_range = [max_datetime.time(), min_datetime.time()]  # Reversed so early times are at top
-            
-            for i, date in enumerate(unique_dates):
-                day_data = timeline_df[timeline_df["date"] == date]
-                
-                # Add a trace for each unique game on this day
-                for game in day_data["game"].unique():
-                    game_data = day_data[day_data["game"] == game]
-                    fig.add_trace(
-                        go.Scatter(
-                            x=game_data["player_full_name"],
-                            y=game_data["time_of_day"],
-                            mode='markers',
-                            name=game,
-                            marker=dict(color=game_color_dict[game], size=10),
-                            hovertemplate='<b>%{text}</b><br>Game: ' + game + '<br>Time: %{y}<extra></extra>',
-                            text=game_data["player_full_name"],
-                            showlegend=(i == 0)  # Only show legend for first subplot
-                        ),
-                        row=1, col=i+1
-                    )
-                
-                # Set consistent y-axis properties for all subplots
-                fig.update_yaxes(
-                    title_text="Time of Day", 
-                    range=y_range,
-                    row=1, col=i+1
-                )
+            fig = px.scatter(timeline_df, x="date", y="time_of_day", size="num_players", hover_name="game", hover_data=["player_full_name"], title="Game Timeline")
+            fig.update_traces(marker=dict(sizemode='diameter', opacity=0.5, line=dict(width=0.5, color='white')))
+
+            # Use TEAM_COLOR_MAP to color the bubbles based on the home team
+            fig.update_traces(marker=dict(color=timeline_df["home_team"].map(TEAM_COLOR_MAP)))
+
+            fig.update_layout(height=600)
 
             st.plotly_chart(fig)
