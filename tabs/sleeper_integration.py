@@ -4,8 +4,10 @@ from sleeper_wrapper import League, Players
 import pandas as pd
 import requests
 import difflib
+
 from plotly import graph_objects as go
 import plotly.express as px
+from plotly.subplots import make_subplots
 
 from scraper.ktc_to_csv import scrape_ktc
 
@@ -544,33 +546,39 @@ def sleeper_integration_tab():
                     timeline_data.append({
                         "player_full_name": " ".join([player["search_first_name"], player["search_last_name"]]),
                         "game": game,
-                        "time": game_time
+                        "date": game_time.date(),
+                        "time_of_day": game_time.time(),
                     })
 
         if timeline_data:
             timeline_df = pd.DataFrame(timeline_data)
-            timeline_df = timeline_df.sort_values(by="time", ascending=True)
-            
-            fig = px.scatter(
-                timeline_df,
-                x="time",
-                y="player_full_name",
-                color="game",
-                title="Game Timeline"
-            )
+            with st.expander("Game Timeline Data"):
+                st.dataframe(timeline_df)
 
-            # Set the x-axis range to be from now to the last game time + 1 hour
-            now = datetime.datetime.now().astimezone()
-            last_game_time = max(timeline_df["time"])
-            fig.update_xaxes(range=[now, last_game_time + pd.Timedelta(hours=1)])
+            # Using subplots to create a timeline with one subplot per day
+            unique_dates = sorted(timeline_df["date"].unique())
+            fig = make_subplots(rows=1, cols=len(unique_dates), shared_xaxes=True, subplot_titles=[date.strftime("%A, %B %d, %Y") for date in unique_dates])
+            for i, date in enumerate(unique_dates):
+                day_data = timeline_df[timeline_df["date"] == date]
+                fig.add_trace(
+                    px.scatter(
+                        day_data,
+                        y="time_of_day",
+                        x="player_full_name",
+                        hover_data=["game"],
+                        color="game",
+                        title=f"Game Timeline - {date.strftime('%A, %B %d, %Y')}"
+                    ).data[0],
+                    row=1, col=i+1
+                )
+                fig.update_yaxes(title_text="Time of Day", row=1, col=i+1)
 
-            # Add vertical lines for each day
-            num_days = (last_game_time.date() - now.date()).days + 1
-            for day in range(num_days):
-                day_date = now.date() + datetime.timedelta(days=day)
-                day_dt = datetime.datetime.combine(day_date, datetime.time.min).astimezone()
-                fig.add_vline(x=pd.Timestamp(day_dt), line_width=1, line_dash="dash", line_color="gray")
+                # Set the y-axis range
+                # Find the min and max time_of_day for the day
+                min_time = day_data["time_of_day"].min()
+                max_time = day_data["time_of_day"].max()
+                fig.update_yaxes(range=[(datetime.datetime.combine(datetime.date.today(), min_time) - datetime.timedelta(hours=1)).time(),
+                                        (datetime.datetime.combine(datetime.date.today(), max_time) + datetime.timedelta(hours=1)).time()],
+                                 row=1, col=i+1)
 
-            fig.update_layout(yaxis_title="Player", xaxis_title="Game Time")
-
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig)
