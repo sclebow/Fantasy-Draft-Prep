@@ -115,13 +115,14 @@ def get_keeptradecut_dataframe():
     return df
 
 def sleeper_integration_tab():
+    keeptradecut_df = get_keeptradecut_dataframe()
+    
     st.header("Sleeper Integration")
     
     cols = st.columns(3)
     with cols[0]:
         sleeper_league_id = st.text_input("Enter your Sleeper League ID:", value="1180366350202068992")
 
-    keeptradecut_df = get_keeptradecut_dataframe()
     with st.expander("KeepTradeCut Data"):
         st.dataframe(keeptradecut_df)
     
