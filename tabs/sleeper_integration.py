@@ -439,7 +439,8 @@ def sleeper_integration_tab():
     # Create a calendar of upcoming NFL games with your players highlighted
     st.header("Upcoming NFL Games Calendar with Your Players")
     user_keys = list(user_roster_data.keys())
-    selected_team = st.selectbox("Select Team to Show Players From:", options=user_keys, index=0)
+    selected_team_display_name = st.selectbox("Select Team to Show Players From:", options=user_keys, index=0)
+    selected_team = next((user for user in users if user["display_name"] == selected_team_display_name), None)
 
     # Get week from Sleeper NFL State endpoint
     url = "https://api.sleeper.app/v1/state/nfl"
@@ -501,7 +502,7 @@ def sleeper_integration_tab():
                 continue
             
             # Show players from selected team that are on either the away or home team
-            selected_team_roster = user_roster_data[selected_team]["roster"]
+            selected_team_roster = user_roster_data[selected_team["display_name"]]["roster"]
             players_in_game = selected_team_roster[(selected_team_roster["team"] == away_team) | (selected_team_roster["team"] == home_team)]
             if not players_in_game.empty:
                 state = game["status"]["type"]["state"]
