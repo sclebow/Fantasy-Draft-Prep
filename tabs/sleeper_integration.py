@@ -577,6 +577,9 @@ def sleeper_integration_tab():
             with st.expander("Game Timeline Data"):
                 st.dataframe(game_df)
 
+            # Convert game_time to categorical for better plotting
+            game_df["game_time"] = pd.Categorical(game_df["game_time"], categories=sorted(game_df["game_time"].unique()), ordered=True)
+
             # Create a grouped bar chart using plotly, that shows the number of players in each game
             # Each bar is a datetime, with a bar for each game that day
             fig = px.bar(
