@@ -116,7 +116,7 @@ def get_keeptradecut_dataframe():
 
 def sleeper_integration_tab():
     keeptradecut_df = get_keeptradecut_dataframe()
-    
+
     st.header("Sleeper Integration")
     
     cols = st.columns(3)
@@ -590,9 +590,6 @@ def sleeper_integration_tab():
             # Calculate the index of each game in each datetime group
             game_df["game_index"] = game_df.groupby("game_time").cumcount()
 
-            with st.expander("Game Timeline Data"):
-                st.dataframe(game_df)
-
             game_df["game_time_str"] = game_df["game_time"].dt.strftime("%a %m/%d %I:%M %p")
             
             # Strip all whitespace from home_team and away_team names
@@ -657,3 +654,40 @@ def sleeper_integration_tab():
                 bar.hovertemplate = hover_texts[i] + "<extra></extra>"
 
             st.plotly_chart(fig)
+
+            with st.expander("Game Timeline Data"):
+                st.dataframe(game_df)
+
+    # Determine which games are most impactful to the selected team, based on number of players in each game and KTC value of those players
+    st.header(f"Most Impactful Games to {selected_team_display_name} This Week")
+    impactful_game_rows = []
+
+    for game_time, game_info in player_week_dict.items():
+        for game, details in game_info.items():
+            players = details["players"]
+            num_players = len(players)
+            total_ktc_value = players["KTC Value"].sum()
+            impactful_game_rows.append({
+                "game": game,
+                "date": game_time.date(),
+                "time_of_day": game_time.time(),
+                "status": details["status"],
+                "num_players": num_players,
+                "total_ktc_value": total_ktc_value,
+                "home_team": game.split(" at ")[1],
+                "away_team": game.split(" at ")[0],
+                "game_time": game_time
+            })
+
+    if impactful_game_rows:
+        impactful_game_df = pd.DataFrame(impactful_game_rows)
+        impactful_game_df = impactful_game_df.sort_values(by=["total_ktc_value", "num_players"], ascending=[False, False])
+        impactful_game_df["game_time_str"] = impactful_game_df["game_time"].dt.strftime("%a %m/%d %I:%M %p")
+
+        impactful_game_df["impact_score"] = impactful_game_df["total_ktc_value"] * 0.7 + impactful_game_df["num_players"] * 0.3 # Weighted score
+        impactful_game_df = impactful_game_df.sort_values(by="impact_score", ascending=False)
+
+        impactful_game_df = impactful_game_df.reset_index(drop=True)
+
+        dynamic_height = 35 * len(impactful_game_df) + 37  # 37 for header row 
+        st.dataframe(impactful_game_df[["game", "date", "time_of_day", "status", "num_players", "total_ktc_value", "impact_score"]], height=min(dynamic_height, 600))
