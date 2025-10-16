@@ -562,15 +562,17 @@ def sleeper_integration_tab():
             game_df = game_df.merge(timeline_df[["game", "date", "time_of_day", "home_team", "away_team"]].drop_duplicates(), on="game", how="left")
             game_df = game_df.sort_values(by=["date", "time_of_day"])
 
-            # Create a timeline heatmap using plotly
-            fig = px.density_heatmap(
+            # Create a grouped bar chart using plotly, that shows the number of players in each game
+            # Each bar is a datetime, with a bar for each game that day
+            fig = px.bar(
                 game_df,
                 x="date",
-                y="time_of_day",
-                z="num_players",
-                color_continuous_scale="Viridis",
-                title="Game Timeline Heatmap"
+                y="num_players",
+                color="game",
+                title="Number of Players in Each Game",
+                labels={"num_players": "Number of Players", "date": "Date"},
+                height=400
             )
-            fig.update_layout(height=600)
+            fig.update_layout(barmode="group")
 
             st.plotly_chart(fig)
