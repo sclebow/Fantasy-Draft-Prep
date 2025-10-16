@@ -607,4 +607,7 @@ def sleeper_integration_tab():
             max_players = game_df["num_players"].max()
             fig.update_layout(height=400 + max_players * 20)
 
+            # Set the width of the bars to be wider
+            fig.update_traces(width=0.4)
+
             st.plotly_chart(fig)
