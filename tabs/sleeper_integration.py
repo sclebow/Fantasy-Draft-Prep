@@ -577,27 +577,28 @@ def sleeper_integration_tab():
             with st.expander("Game Timeline Data"):
                 st.dataframe(game_df)
 
-            game_df["game_time_str"] = game_df["game_time"].dt.strftime("%Y-%m-%d %I:%M %p")
+            game_df["game_time_str"] = game_df["game_time"].dt.strftime("%a %m/%d %I:%M %p")
             
             # Strip all whitespace from home_team and away_team names
             game_df["home_team"] = game_df["home_team"].str.strip()
             game_df["away_team"] = game_df["away_team"].str.strip()
 
+            # Create a color mapping for games based on home team
+            game_df["color"] = game_df["home_team"].map(TEAM_COLOR_MAP)
+            
             # Create a grouped bar chart using plotly, that shows the number of players in each game
             # Each bar is a datetime, with a bar for each game that day
             fig = px.bar(
                 game_df,
                 x="game_time_str",
                 y="num_players",
-                color="game",
+                color="home_team",
+                color_discrete_map=TEAM_COLOR_MAP,
                 title="Number of Players in Each Game",
-                labels={"num_players": "Number of Players", "date": "Date"},
+                labels={"num_players": "Number of Players", "date": "Date", "home_team": "Home Team"},
                 height=400
             )
             fig.update_layout(barmode="group")
-
-            # Use TEAM_COLOR_MAP to set bar colors based on home team
-            fig.update_traces(marker_color=game_df["home_team"].map(TEAM_COLOR_MAP))
 
             # Show Time of Day on the x-axis labels
             fig.update_xaxes(tickformat="%b %d\n%I:%M %p")
