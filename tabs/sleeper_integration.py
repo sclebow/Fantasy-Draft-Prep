@@ -551,23 +551,25 @@ def sleeper_integration_tab():
                         "time_of_day": game_time.time(),
                         "home_team": game.split(" at ")[1],
                         "away_team": game.split(" at ")[0],
+                        "game_time": game_time,
                     })
 
         if timeline_data:
             timeline_df = pd.DataFrame(timeline_data)
-            with st.expander("Game Timeline Data"):
-                st.dataframe(timeline_df)
 
             # Create a game_df that counts the number of players in each game
             game_df = timeline_df.groupby("game").agg(num_players=("player_full_name", "count")).reset_index()
-            game_df = game_df.merge(timeline_df[["game", "date", "time_of_day", "home_team", "away_team"]].drop_duplicates(), on="game", how="left")
+            game_df = game_df.merge(timeline_df[["game", "game_time", "date", "time_of_day", "home_team", "away_team"]].drop_duplicates(), on="game", how="left")
             game_df = game_df.sort_values(by=["date", "time_of_day"])
+
+            with st.expander("Game Timeline Data"):
+                st.dataframe(game_df)
 
             # Create a grouped bar chart using plotly, that shows the number of players in each game
             # Each bar is a datetime, with a bar for each game that day
             fig = px.bar(
                 game_df,
-                x="date",
+                x="game_time",
                 y="num_players",
                 color="game",
                 title="Number of Players in Each Game",
