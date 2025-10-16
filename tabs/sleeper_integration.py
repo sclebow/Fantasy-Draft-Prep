@@ -576,4 +576,14 @@ def sleeper_integration_tab():
             )
             fig.update_layout(barmode="group")
 
+            # Use TEAM_COLOR_MAP to set bar colors based on home team
+            fig.update_traces(marker_color=game_df["home_team"].map(TEAM_COLOR_MAP))
+
+            # Show Time of Day on the x-axis labels
+            fig.update_xaxes(tickformat="%b %d\n%I:%M %p")
+
+            # Set the height of the figure based on the maximum number of players in any game
+            max_players = game_df["num_players"].max()
+            fig.update_layout(height=400 + max_players * 20)
+
             st.plotly_chart(fig)
