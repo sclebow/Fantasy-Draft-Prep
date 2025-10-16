@@ -579,6 +579,16 @@ def sleeper_integration_tab():
             game_df = game_df.merge(timeline_df[["game", "game_time", "date", "time_of_day", "home_team", "away_team"]].drop_duplicates(), on="game", how="left")
             game_df = game_df.sort_values(by=["date", "time_of_day", "num_players"], ascending=[True, True, False])
 
+            # Bar widths for each datetime should be based on number of games at that datetime
+            game_counts = game_df["game_time"].value_counts().to_dict()
+            game_df["bar_width"] = game_df["game_time"].map(lambda x: 1.0 / game_counts[x])  # Base width of 0.2, plus a fraction based on number of games that day
+
+            # Count the number of games at each datetime
+            game_df["num_games_at_time"] = game_df["game_time"].map(lambda x: game_counts[x])
+
+            # Calculate the index of each game in each datetime group
+            game_df["game_index"] = game_df.groupby("game_time").cumcount()
+
             with st.expander("Game Timeline Data"):
                 st.dataframe(game_df)
 
@@ -611,5 +621,38 @@ def sleeper_integration_tab():
             # Set the height of the figure based on the maximum number of players in any game
             max_players = game_df["num_players"].max()
             fig.update_layout(height=400 + max_players * 20)
+
+            for i, bar in enumerate(fig.data):
+                # Adjust the width of each bar based on the number of players in the game
+                bar.width = game_df.iloc[i]["bar_width"] * 0.8  # Scale down to 80% to give some space between bars
+                
+                # Adjust the bar_offset based on the game_index, so bars don't overlap
+                base_offset = -game_df.iloc[i]["bar_width"] / 2
+                index = game_df.iloc[i]["game_index"]
+                
+                # The bars are now centered on the x-axis value, so we need to offset them further based on their index and total number of games at that time
+                if game_df.iloc[i]["num_games_at_time"] > 1:
+                    additional_offset = (index - (game_df.iloc[i]["num_games_at_time"] - 1) / 2) * game_df.iloc[i]["bar_width"]
+
+                    bar.offset = base_offset + additional_offset
+                else:
+                    bar.offset = base_offset
+
+            # Add labels on top of each bar showing the name of the game
+            for i, bar in enumerate(fig.data):
+                bar.text = game_df.iloc[i]["game"]
+                bar.textposition = "outside"
+
+            # Add hover data to show the game name and list of players in the game
+            hover_texts = []
+            for i, row in game_df.iterrows():
+                players_in_game = timeline_df[timeline_df["game"] == row["game"]]["player_full_name"].tolist()
+                players_str = "<br>".join(players_in_game)
+                hover_text = f"<b>{row['game']}</b><br>Number of Players: {row['num_players']}<br><br><b>Players:</b><br>{players_str}"
+                hover_texts.append(hover_text)
+
+            # Set custom hover text for each bar
+            for i, bar in enumerate(fig.data):
+                bar.hovertemplate = hover_texts[i] + "<extra></extra>"
 
             st.plotly_chart(fig)
