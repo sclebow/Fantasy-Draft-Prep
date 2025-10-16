@@ -558,27 +558,46 @@ def sleeper_integration_tab():
             # Using subplots to create a timeline with one subplot per day
             unique_dates = sorted(timeline_df["date"].unique())
             fig = make_subplots(rows=1, cols=len(unique_dates), shared_xaxes=True, subplot_titles=[date.strftime("%A, %B %d, %Y") for date in unique_dates])
+            
+            # Get unique games across all dates for consistent coloring
+            unique_games = timeline_df["game"].unique()
+            color_map = px.colors.qualitative.Set1[:len(unique_games)]
+            game_color_dict = {game: color_map[i % len(color_map)] for i, game in enumerate(unique_games)}
+
+            # Calculate global min/max times across all days for consistent y-axis range
+            global_min_time = timeline_df["time_of_day"].min()
+            global_max_time = timeline_df["time_of_day"].max()
+            
+            # Add some padding (1 hour before and after)
+            min_datetime = datetime.datetime.combine(datetime.date.today(), global_min_time) - datetime.timedelta(hours=1)
+            max_datetime = datetime.datetime.combine(datetime.date.today(), global_max_time) + datetime.timedelta(hours=1)
+            y_range = [max_datetime.time(), min_datetime.time()]  # Reversed so early times are at top
+            
             for i, date in enumerate(unique_dates):
                 day_data = timeline_df[timeline_df["date"] == date]
-                fig.add_trace(
-                    px.scatter(
-                        day_data,
-                        y="time_of_day",
-                        x="player_full_name",
-                        hover_data=["game"],
-                        color="game",
-                        title=f"Game Timeline - {date.strftime('%A, %B %d, %Y')}"
-                    ).data[0],
+                
+                # Add a trace for each unique game on this day
+                for game in day_data["game"].unique():
+                    game_data = day_data[day_data["game"] == game]
+                    fig.add_trace(
+                        go.Scatter(
+                            x=game_data["player_full_name"],
+                            y=game_data["time_of_day"],
+                            mode='markers',
+                            name=game,
+                            marker=dict(color=game_color_dict[game], size=10),
+                            hovertemplate='<b>%{text}</b><br>Game: ' + game + '<br>Time: %{y}<extra></extra>',
+                            text=game_data["player_full_name"],
+                            showlegend=(i == 0)  # Only show legend for first subplot
+                        ),
+                        row=1, col=i+1
+                    )
+                
+                # Set consistent y-axis properties for all subplots
+                fig.update_yaxes(
+                    title_text="Time of Day", 
+                    range=y_range,
                     row=1, col=i+1
                 )
-                fig.update_yaxes(title_text="Time of Day", row=1, col=i+1)
-
-                # Set the y-axis range
-                # Find the min and max time_of_day for the day
-                min_time = day_data["time_of_day"].min()
-                max_time = day_data["time_of_day"].max()
-                fig.update_yaxes(range=[(datetime.datetime.combine(datetime.date.today(), min_time) - datetime.timedelta(hours=1)).time(),
-                                        (datetime.datetime.combine(datetime.date.today(), max_time) + datetime.timedelta(hours=1)).time()],
-                                 row=1, col=i+1)
 
             st.plotly_chart(fig)
