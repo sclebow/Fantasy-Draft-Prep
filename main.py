@@ -3,29 +3,6 @@
 
 import streamlit as st
 
-from tabs import live_draft, data_overview, free_agents_espn, sleeper_integration
-
-print("\n" * 10)
-
-# STREAMLIT UI
 st.set_page_config(page_title="Fantasy Football Draft Prep", layout="wide")
-
-mode_options = [
-        "Sleeper Integration Only Mode",
-        "Draft Mode", 
-    ]
-selected_mode = st.sidebar.selectbox("Select Mode", mode_options)
-
-if selected_mode == "Sleeper Integration Only Mode":
-    sleeper_integration.sleeper_integration_tab()
-
-elif selected_mode == "Draft Mode":
-    main_tabs = st.tabs(["Live Draft", "Data Overview", "Free Agents in ESPN", "Sleeper Integration"])
-    with main_tabs[1]:
-        data_overview.data_overview_tab()
-
-    with main_tabs[0]:
-        live_draft.live_draft_tab()
-
-    with main_tabs[2]:
-        free_agents_espn.free_agents_espn_tab()
+st.title("Welcome to Fantasy Football Draft Prep!")
+st.write("Use the sidebar to navigate between pages.")
