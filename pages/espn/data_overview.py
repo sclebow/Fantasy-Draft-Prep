@@ -331,3 +331,5 @@ def data_overview_tab():
             st.subheader(position)
             st.dataframe(combined_data[combined_data["POS"] == position].sort_values(by="FPTS_Rank"), hide_index=True)
 
+st.set_page_config(page_title="Data Overview", layout="wide")
+data_overview_tab()

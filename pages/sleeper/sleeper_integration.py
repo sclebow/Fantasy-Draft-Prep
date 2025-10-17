@@ -691,3 +691,6 @@ def sleeper_integration_tab():
 
         dynamic_height = 35 * len(impactful_game_df) + 37  # 37 for header row 
         st.dataframe(impactful_game_df[["game", "date", "time_of_day", "status", "num_players", "total_ktc_value", "impact_score"]], height=min(dynamic_height, 600))
+
+st.set_page_config(page_title="Sleeper Integration", layout="wide")
+sleeper_integration_tab()

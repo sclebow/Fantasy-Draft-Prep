@@ -117,3 +117,5 @@ def live_draft_tab():
 
     st.markdown(", ".join([f"{player}" for player in top_players]))
 
+st.set_page_config(page_title="Live Draft", layout="wide")
+live_draft_tab()

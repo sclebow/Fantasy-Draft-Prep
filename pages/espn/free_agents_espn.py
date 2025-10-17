@@ -136,3 +136,6 @@ def free_agents_espn_tab():
             st.markdown(f"###### Potential Improvement:")
             improvement_df = roster_position_df[["name", "improvement", "# Options"]].sort_values(by="improvement", ascending=False)
             st.dataframe(improvement_df, hide_index=True)
+
+st.set_page_config(page_title="Free Agents in ESPN", layout="wide")
+free_agents_espn_tab()
