@@ -3,6 +3,10 @@
 
 import streamlit as st
 
+from utils.fantasy_pros_combined_data import create_combined_data
+
+create_combined_data()
+
 st.set_page_config(page_title="Fantasy Football Draft Prep", layout="wide")
 st.title("Welcome to Fantasy Football Draft Prep!")
 st.write("Use the sidebar to navigate between pages.")
@@ -28,4 +32,4 @@ pg = st.navigation(
 
 pg.run()
 
-st.switch_page(sleeper_integration_page)
+# st.switch_page(sleeper_integration_page)
