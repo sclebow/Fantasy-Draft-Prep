@@ -1,7 +1,78 @@
 import streamlit as st
 import pandas as pd
+import os
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+import time
+
+
+def scrape_qb_projections_csv(qb_projections_url, download_dir="/tmp"):
+    """
+    Scrape the QB projections CSV from FantasyPros using Selenium and save it locally.
+    Returns the path to the downloaded CSV file.
+    """
+    # Set up Selenium WebDriver (Chrome)
+    options = webdriver.ChromeOptions()
+    prefs = {"download.default_directory": download_dir}
+    options.add_experimental_option("prefs", prefs)
+    options = webdriver.ChromeOptions()
+    options.add_experimental_option("prefs", {
+        "download.default_directory": download_dir,
+        "download.prompt_for_download": False,
+        "profile.default_content_settings.popups": 0,
+        "directory_upgrade": True
+    })
+    # options.add_argument("--headless")
+    driver = webdriver.Chrome(options=options)
+    driver.get(qb_projections_url)
+    time.sleep(2)
+    # Close cookie acceptance banner if present
+    try:
+        cookie_btn = driver.find_element(By.XPATH, "//*[@id='onetrust-accept-btn-handler']")
+        cookie_btn.click()
+        time.sleep(1)
+        print("Cookie banner closed.")
+    except Exception as e:
+        print("No cookie banner to close or error:", e)
+    # Find the CSV download button (usually contains 'CSV' text)
+    try:
+        download_button = driver.find_element(By.XPATH, "/html/body/div[2]/div[3]/div/div[1]/div/div[1]/div[2]/div/a[2]")
+        download_button.click()
+        time.sleep(5)  # Wait for download
+        # Find the most recent CSV file in download_dir
+        files = [f for f in os.listdir(download_dir) if f.endswith('.csv')]
+        if files:
+            csv_path = os.path.join(download_dir, sorted(files, key=lambda x: os.path.getmtime(os.path.join(download_dir, x)), reverse=True)[0])
+        else:
+            csv_path = None
+    except Exception as e:
+        csv_path = None
+        print(f"Error during scraping: {e}")
+    driver.quit()
+    return csv_path
 
 def data_overview_tab():
+    st.header("FantasyPros Scrape Attempt")
+
+    qb_projections_url = "https://www.fantasypros.com/nfl/projections/qb.php?week=draft"
+    rb_projections_url = "https://www.fantasypros.com/nfl/projections/rb.php?week=draft"
+    wr_projections_url = "https://www.fantasypros.com/nfl/projections/wr.php?week=draft"
+    te_projections_url = "https://www.fantasypros.com/nfl/projections/te.php?week=draft"
+    k_projections_url = "https://www.fantasypros.com/nfl/projections/k.php?week=draft"
+    dst_projections_url = "https://www.fantasypros.com/nfl/projections/dst.php?week=draft"
+
+    # Scrape QB projections CSV and load into DataFrame
+    if st.button("Scrape QB Projections CSV from FantasyPros"):
+        csv_path = scrape_qb_projections_csv(qb_projections_url)
+        if csv_path:
+            st.success(f"Downloaded QB projections CSV: {csv_path}")
+            qb_df = pd.read_csv(csv_path)
+            st.dataframe(qb_df)
+        else:
+            st.error("Failed to download QB projections CSV.")
+
+    st.markdown("---")
+
     cols = st.columns(5)
     with cols[0]:
         uploaded_dst = st.file_uploader("Upload New DST CSV from FantasyPros", type="csv", key="dst_uploader")
