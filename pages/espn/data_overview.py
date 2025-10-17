@@ -45,6 +45,11 @@ def scrape_qb_projections_csv(qb_projections_url, download_dir="/tmp"):
             csv_path = os.path.join(download_dir, sorted(files, key=lambda x: os.path.getmtime(os.path.join(download_dir, x)), reverse=True)[0])
         else:
             csv_path = None
+
+        if not csv_path:
+            # This is because we need to log into FantasyPros to access the CSV
+            # TODO: Implement login logic here if necessary
+            pass # TODO
     except Exception as e:
         csv_path = None
         print(f"Error during scraping: {e}")
