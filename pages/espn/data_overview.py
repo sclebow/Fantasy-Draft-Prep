@@ -1,3 +1,4 @@
+from bs4 import BeautifulSoup
 import streamlit as st
 import pandas as pd
 import os
@@ -5,56 +6,77 @@ from selenium import webdriver
 from selenium.webdriver.common.by import By
 import time
 
+def wait_seconds(seconds):
+    print(f"Waiting for {seconds} seconds...")
+    for i in range(seconds):
+        time.sleep(1)
+        print(f"Waiting... {i + 1}/{seconds} seconds elapsed.")
 
-def scrape_qb_projections_csv(qb_projections_url, download_dir="/tmp"):
+def scrape_qb_projections_csv(qb_projections_url, fantasy_pros_username, fantasy_pros_password, download_dir="/tmp"):
     """
     Scrape the QB projections CSV from FantasyPros using Selenium and save it locally.
     Returns the path to the downloaded CSV file.
     """
-    # Set up Selenium WebDriver (Chrome)
-    options = webdriver.ChromeOptions()
-    prefs = {"download.default_directory": download_dir}
-    options.add_experimental_option("prefs", prefs)
-    options = webdriver.ChromeOptions()
-    options.add_experimental_option("prefs", {
-        "download.default_directory": download_dir,
-        "download.prompt_for_download": False,
-        "profile.default_content_settings.popups": 0,
-        "directory_upgrade": True
-    })
-    # options.add_argument("--headless")
-    driver = webdriver.Chrome(options=options)
-    driver.get(qb_projections_url)
-    time.sleep(2)
-    # Close cookie acceptance banner if present
-    try:
-        cookie_btn = driver.find_element(By.XPATH, "//*[@id='onetrust-accept-btn-handler']")
-        cookie_btn.click()
-        time.sleep(1)
-        print("Cookie banner closed.")
-    except Exception as e:
-        print("No cookie banner to close or error:", e)
-    # Find the CSV download button (usually contains 'CSV' text)
-    try:
-        download_button = driver.find_element(By.XPATH, "/html/body/div[2]/div[3]/div/div[1]/div/div[1]/div[2]/div/a[2]")
-        download_button.click()
-        time.sleep(5)  # Wait for download
-        # Find the most recent CSV file in download_dir
-        files = [f for f in os.listdir(download_dir) if f.endswith('.csv')]
-        if files:
-            csv_path = os.path.join(download_dir, sorted(files, key=lambda x: os.path.getmtime(os.path.join(download_dir, x)), reverse=True)[0])
-        else:
-            csv_path = None
+    from selenium.webdriver.support.ui import WebDriverWait
+    from selenium.webdriver.support import expected_conditions as EC
+    import glob
 
-        if not csv_path:
-            # This is because we need to log into FantasyPros to access the CSV
-            # TODO: Implement login logic here if necessary
-            pass # TODO
+    print("Starting Selenium WebDriver...")
+    options = webdriver.ChromeOptions()
+    options.add_argument("--headless")
+    options.add_argument("--no-sandbox")
+    options.add_argument("--disable-dev-shm-usage")
+    driver = webdriver.Chrome(options=options)
+
+    driver.get(qb_projections_url)
+    print(f"Navigated to {qb_projections_url}")
+
+    # Wait for the table to load
+    try:
+        WebDriverWait(driver, 20).until(
+            EC.presence_of_element_located((By.ID, "data"))
+        )
+        print("Table loaded.")
     except Exception as e:
-        csv_path = None
-        print(f"Error during scraping: {e}")
+        print("Error locating table:", e)
+        driver.quit()
+        return None
+
+    # Get page source and parse table
+    soup = BeautifulSoup(driver.page_source, "html.parser")
+    table = soup.find("table", id="data")
+    if table is None:
+        print("Table not found.")
+        driver.quit()
+        return None
+
+    # Parse table into DataFrame
+    df = pd.read_html(str(table))[0]
     driver.quit()
-    return csv_path
+    return df
+    #             )
+    #             download_button.click()
+    #             print("Download button clicked after login.")
+
+    #             # Wait again for the CSV file to appear in the download directory
+    #             for _ in range(30):  # Wait up to 30 seconds
+    #                 files = glob.glob(os.path.join(download_dir, "*.csv"))
+    #                 if files:
+    #                     csv_path = max(files, key=os.path.getmtime)
+    #                     break
+    #                 time.sleep(1)
+    #                 print(f"Waiting for CSV file... {_ + 1}/30 seconds elapsed.")
+    #             if not csv_path:
+    #                 print("CSV file still not found after login.")
+
+    #         except Exception as e:
+    #             print("Login failed:", e)
+
+    # except Exception as e:
+    #     csv_path = None
+    #     print(f"Error during scraping: {e}")
+    # driver.quit()
+    # return csv_path
 
 def data_overview_tab():
     st.header("FantasyPros Scrape Attempt")
@@ -67,8 +89,17 @@ def data_overview_tab():
     dst_projections_url = "https://www.fantasypros.com/nfl/projections/dst.php?week=draft"
 
     # Scrape QB projections CSV and load into DataFrame
-    if st.button("Scrape QB Projections CSV from FantasyPros"):
-        csv_path = scrape_qb_projections_csv(qb_projections_url)
+    cols = st.columns(3)
+
+    with cols[0]:
+        fantasy_pros_username = st.text_input("FantasyPros Username", key="fp_username")
+    with cols[1]:
+        fantasy_pros_password = st.text_input("FantasyPros Password", type="password", key="fp_password")
+    with cols[2]:
+        scrape_button = st.button("Scrape QB Projections CSV from FantasyPros")
+
+    if scrape_button:
+        csv_path = scrape_qb_projections_csv(qb_projections_url, fantasy_pros_username, fantasy_pros_password)
         if csv_path:
             st.success(f"Downloaded QB projections CSV: {csv_path}")
             qb_df = pd.read_csv(csv_path)
