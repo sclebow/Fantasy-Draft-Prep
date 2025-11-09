@@ -12,10 +12,9 @@ def wait_seconds(seconds):
         time.sleep(1)
         print(f"Waiting... {i + 1}/{seconds} seconds elapsed.")
 
-def scrape_qb_projections_csv(qb_projections_url, fantasy_pros_username, fantasy_pros_password, download_dir="/tmp"):
+def scrape_projections_df(projections_url):
     """
-    Scrape the QB projections CSV from FantasyPros using Selenium and save it locally.
-    Returns the path to the downloaded CSV file.
+    Scrape the projections DataFrame from FantasyPros using Selenium and save it locally.
     """
     from selenium.webdriver.support.ui import WebDriverWait
     from selenium.webdriver.support import expected_conditions as EC
@@ -28,8 +27,8 @@ def scrape_qb_projections_csv(qb_projections_url, fantasy_pros_username, fantasy
     options.add_argument("--disable-dev-shm-usage")
     driver = webdriver.Chrome(options=options)
 
-    driver.get(qb_projections_url)
-    print(f"Navigated to {qb_projections_url}")
+    driver.get(projections_url)
+    print(f"Navigated to {projections_url}")
 
     # Wait for the table to load
     try:
@@ -53,83 +52,67 @@ def scrape_qb_projections_csv(qb_projections_url, fantasy_pros_username, fantasy
     # Parse table into DataFrame
     df = pd.read_html(str(table))[0]
     driver.quit()
+
+    # Check if there are multiple header rows and only keep the last one
+    if isinstance(df.columns, pd.MultiIndex):
+        df.columns = df.columns.get_level_values(-1)
+
+    # Rename duplicate columns to make them unique
+    def make_unique_columns(columns):
+        counts = {}
+        new_cols = []
+        for col in columns:
+            if col in counts:
+                counts[col] += 1
+                new_cols.append(f"{col}_{counts[col]}")
+            else:
+                counts[col] = 0
+                new_cols.append(col)
+        return new_cols
+    df.columns = make_unique_columns(df.columns)
+
     return df
-    #             )
-    #             download_button.click()
-    #             print("Download button clicked after login.")
-
-    #             # Wait again for the CSV file to appear in the download directory
-    #             for _ in range(30):  # Wait up to 30 seconds
-    #                 files = glob.glob(os.path.join(download_dir, "*.csv"))
-    #                 if files:
-    #                     csv_path = max(files, key=os.path.getmtime)
-    #                     break
-    #                 time.sleep(1)
-    #                 print(f"Waiting for CSV file... {_ + 1}/30 seconds elapsed.")
-    #             if not csv_path:
-    #                 print("CSV file still not found after login.")
-
-    #         except Exception as e:
-    #             print("Login failed:", e)
-
-    # except Exception as e:
-    #     csv_path = None
-    #     print(f"Error during scraping: {e}")
-    # driver.quit()
-    # return csv_path
 
 def data_overview_tab():
     st.header("FantasyPros Scrape Attempt")
 
     qb_projections_url = "https://www.fantasypros.com/nfl/projections/qb.php?week=draft"
-    rb_projections_url = "https://www.fantasypros.com/nfl/projections/rb.php?week=draft"
-    wr_projections_url = "https://www.fantasypros.com/nfl/projections/wr.php?week=draft"
-    te_projections_url = "https://www.fantasypros.com/nfl/projections/te.php?week=draft"
-    k_projections_url = "https://www.fantasypros.com/nfl/projections/k.php?week=draft"
+    flx_projections_url = "https://www.fantasypros.com/nfl/projections/flex.php?week=draft"
     dst_projections_url = "https://www.fantasypros.com/nfl/projections/dst.php?week=draft"
+    k_projections_url = "https://www.fantasypros.com/nfl/projections/k.php?week=draft"
+    adp_projections_url = "https://www.fantasypros.com/nfl/adp/overall.php"
 
-    # Scrape QB projections CSV and load into DataFrame
-    cols = st.columns(3)
-
-    with cols[0]:
-        fantasy_pros_username = st.text_input("FantasyPros Username", key="fp_username")
-    with cols[1]:
-        fantasy_pros_password = st.text_input("FantasyPros Password", type="password", key="fp_password")
-    with cols[2]:
-        scrape_button = st.button("Scrape QB Projections CSV from FantasyPros")
+    scrape_button = st.button("Scrape Projections from FantasyPros")
 
     if scrape_button:
-        csv_path = scrape_qb_projections_csv(qb_projections_url, fantasy_pros_username, fantasy_pros_password)
-        if csv_path:
-            st.success(f"Downloaded QB projections CSV: {csv_path}")
-            qb_df = pd.read_csv(csv_path)
-            st.dataframe(qb_df)
-        else:
-            st.error("Failed to download QB projections CSV.")
+        with st.spinner("Scraping QB projections..."):
+            qb_df = scrape_projections_df(qb_projections_url)
+            st.session_state["qb_data"] = qb_df
+
+        with st.spinner("Scraping FLX projections..."):
+            flx_df = scrape_projections_df(flx_projections_url)
+            st.session_state["flx_data"] = flx_df
+
+        with st.spinner("Scraping DST projections..."):
+            dst_df = scrape_projections_df(dst_projections_url)
+            st.session_state["dst_data"] = dst_df
+
+        with st.spinner("Scraping K projections..."):
+            k_df = scrape_projections_df(k_projections_url)
+            st.session_state["k_data"] = k_df
+
+        with st.spinner("Scraping ADP data..."):
+            adp_df = scrape_projections_df(adp_projections_url)
+            st.session_state["adp_data"] = adp_df
 
     st.markdown("---")
 
-    cols = st.columns(5)
-    with cols[0]:
-        uploaded_dst = st.file_uploader("Upload New DST CSV from FantasyPros", type="csv", key="dst_uploader")
-        if uploaded_dst:
-            st.session_state["dst_data"] = pd.read_csv(uploaded_dst)
-    with cols[1]:
-        uploaded_flx = st.file_uploader("Upload New FLX CSV from FantasyPros", type="csv", key="flx_uploader")
-        if uploaded_flx:
-            st.session_state["flx_data"] = pd.read_csv(uploaded_flx)
-    with cols[2]:
-        uploaded_k = st.file_uploader("Upload New K CSV from FantasyPros", type="csv", key="k_uploader")
-        if uploaded_k:
-            st.session_state["k_data"] = pd.read_csv(uploaded_k)
-    with cols[3]:
-        uploaded_qb = st.file_uploader("Upload New QB CSV from FantasyPros", type="csv", key="qb_uploader")
-        if uploaded_qb:
-            st.session_state["qb_data"] = pd.read_csv(uploaded_qb)
-    with cols[4]:
-        uploaded_adp = st.file_uploader("Upload New ADP CSV from FantasyPros", type="csv", key="adp_uploader")
-        if uploaded_adp:
-            st.session_state["adp_data"] = pd.read_csv(uploaded_adp)
+    if "qb_data" not in st.session_state and \
+       "flx_data" not in st.session_state and \
+       "dst_data" not in st.session_state and \
+       "k_data" not in st.session_state:
+        st.info("No data scraped yet. Click the button above to scrape projections from FantasyPros.")
+        return
 
     data_tabs = st.tabs(["DST", "FLX", "K", "QB", "ADP"])
 
