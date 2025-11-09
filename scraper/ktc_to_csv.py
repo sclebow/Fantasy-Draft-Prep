@@ -1,9 +1,10 @@
 import requests
 from bs4 import BeautifulSoup
-import gspread
-from oauth2client.service_account import ServiceAccountCredentials
+# import gspread
+# from oauth2client.service_account import ServiceAccountCredentials
 from tqdm import tqdm
-import sys,time,random
+# import sys,time,random
+import sys
 from datetime import date, datetime
 import csv
 
