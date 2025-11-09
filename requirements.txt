@@ -4,5 +4,5 @@ espn-api
 tqdm
 sleeper-api-wrapper
 lxml
-selenium
+requests
 beautifulsoup4

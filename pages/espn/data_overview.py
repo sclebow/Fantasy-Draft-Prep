@@ -16,42 +16,23 @@ def scrape_projections_df(projections_url):
     """
     Scrape the projections DataFrame from FantasyPros using Selenium and save it locally.
     """
-    from selenium.webdriver.support.ui import WebDriverWait
-    from selenium.webdriver.support import expected_conditions as EC
-    import glob
 
-    print("Starting Selenium WebDriver...")
-    options = webdriver.ChromeOptions()
-    options.add_argument("--headless")
-    options.add_argument("--no-sandbox")
-    options.add_argument("--disable-dev-shm-usage")
-    driver = webdriver.Chrome(options=options)
+    import requests
 
-    driver.get(projections_url)
-    print(f"Navigated to {projections_url}")
-
-    # Wait for the table to load
-    try:
-        WebDriverWait(driver, 20).until(
-            EC.presence_of_element_located((By.ID, "data"))
-        )
-        print("Table loaded.")
-    except Exception as e:
-        print("Error locating table:", e)
-        driver.quit()
+    print(f"Requesting {projections_url} ...")
+    response = requests.get(projections_url)
+    if response.status_code != 200:
+        print(f"Failed to fetch page: {response.status_code}")
         return None
 
-    # Get page source and parse table
-    soup = BeautifulSoup(driver.page_source, "html.parser")
+    soup = BeautifulSoup(response.text, "html.parser")
     table = soup.find("table", id="data")
     if table is None:
         print("Table not found.")
-        driver.quit()
         return None
 
     # Parse table into DataFrame
     df = pd.read_html(str(table))[0]
-    driver.quit()
 
     # Check if there are multiple header rows and only keep the last one
     if isinstance(df.columns, pd.MultiIndex):
