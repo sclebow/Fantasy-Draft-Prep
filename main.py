@@ -5,6 +5,9 @@ import streamlit as st
 
 from utils.fantasy_pros_combined_data import create_combined_data
 
+print("\n" * 10)
+print("Starting Fantasy Football Draft Prep App")
+
 create_combined_data()
 
 st.set_page_config(page_title="Fantasy Football Draft Prep", layout="wide")

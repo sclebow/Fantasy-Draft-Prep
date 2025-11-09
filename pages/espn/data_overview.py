@@ -1,28 +1,118 @@
+from bs4 import BeautifulSoup
 import streamlit as st
 import pandas as pd
+import os
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+import time
+
+def wait_seconds(seconds):
+    print(f"Waiting for {seconds} seconds...")
+    for i in range(seconds):
+        time.sleep(1)
+        print(f"Waiting... {i + 1}/{seconds} seconds elapsed.")
+
+def scrape_projections_df(projections_url):
+    """
+    Scrape the projections DataFrame from FantasyPros using Selenium and save it locally.
+    """
+    from selenium.webdriver.support.ui import WebDriverWait
+    from selenium.webdriver.support import expected_conditions as EC
+    import glob
+
+    print("Starting Selenium WebDriver...")
+    options = webdriver.ChromeOptions()
+    options.add_argument("--headless")
+    options.add_argument("--no-sandbox")
+    options.add_argument("--disable-dev-shm-usage")
+    driver = webdriver.Chrome(options=options)
+
+    driver.get(projections_url)
+    print(f"Navigated to {projections_url}")
+
+    # Wait for the table to load
+    try:
+        WebDriverWait(driver, 20).until(
+            EC.presence_of_element_located((By.ID, "data"))
+        )
+        print("Table loaded.")
+    except Exception as e:
+        print("Error locating table:", e)
+        driver.quit()
+        return None
+
+    # Get page source and parse table
+    soup = BeautifulSoup(driver.page_source, "html.parser")
+    table = soup.find("table", id="data")
+    if table is None:
+        print("Table not found.")
+        driver.quit()
+        return None
+
+    # Parse table into DataFrame
+    df = pd.read_html(str(table))[0]
+    driver.quit()
+
+    # Check if there are multiple header rows and only keep the last one
+    if isinstance(df.columns, pd.MultiIndex):
+        df.columns = df.columns.get_level_values(-1)
+
+    # Rename duplicate columns to make them unique
+    def make_unique_columns(columns):
+        counts = {}
+        new_cols = []
+        for col in columns:
+            if col in counts:
+                counts[col] += 1
+                new_cols.append(f"{col}_{counts[col]}")
+            else:
+                counts[col] = 0
+                new_cols.append(col)
+        return new_cols
+    df.columns = make_unique_columns(df.columns)
+
+    return df
 
 def data_overview_tab():
-    cols = st.columns(5)
-    with cols[0]:
-        uploaded_dst = st.file_uploader("Upload New DST CSV from FantasyPros", type="csv", key="dst_uploader")
-        if uploaded_dst:
-            st.session_state["dst_data"] = pd.read_csv(uploaded_dst)
-    with cols[1]:
-        uploaded_flx = st.file_uploader("Upload New FLX CSV from FantasyPros", type="csv", key="flx_uploader")
-        if uploaded_flx:
-            st.session_state["flx_data"] = pd.read_csv(uploaded_flx)
-    with cols[2]:
-        uploaded_k = st.file_uploader("Upload New K CSV from FantasyPros", type="csv", key="k_uploader")
-        if uploaded_k:
-            st.session_state["k_data"] = pd.read_csv(uploaded_k)
-    with cols[3]:
-        uploaded_qb = st.file_uploader("Upload New QB CSV from FantasyPros", type="csv", key="qb_uploader")
-        if uploaded_qb:
-            st.session_state["qb_data"] = pd.read_csv(uploaded_qb)
-    with cols[4]:
-        uploaded_adp = st.file_uploader("Upload New ADP CSV from FantasyPros", type="csv", key="adp_uploader")
-        if uploaded_adp:
-            st.session_state["adp_data"] = pd.read_csv(uploaded_adp)
+    st.header("FantasyPros Scrape Attempt")
+
+    qb_projections_url = "https://www.fantasypros.com/nfl/projections/qb.php?week=draft"
+    flx_projections_url = "https://www.fantasypros.com/nfl/projections/flex.php?week=draft"
+    dst_projections_url = "https://www.fantasypros.com/nfl/projections/dst.php?week=draft"
+    k_projections_url = "https://www.fantasypros.com/nfl/projections/k.php?week=draft"
+    adp_projections_url = "https://www.fantasypros.com/nfl/adp/overall.php"
+
+    scrape_button = st.button("Scrape Projections from FantasyPros")
+
+    if scrape_button:
+        with st.spinner("Scraping QB projections..."):
+            qb_df = scrape_projections_df(qb_projections_url)
+            st.session_state["qb_data"] = qb_df
+
+        with st.spinner("Scraping FLX projections..."):
+            flx_df = scrape_projections_df(flx_projections_url)
+            st.session_state["flx_data"] = flx_df
+
+        with st.spinner("Scraping DST projections..."):
+            dst_df = scrape_projections_df(dst_projections_url)
+            st.session_state["dst_data"] = dst_df
+
+        with st.spinner("Scraping K projections..."):
+            k_df = scrape_projections_df(k_projections_url)
+            st.session_state["k_data"] = k_df
+
+        with st.spinner("Scraping ADP data..."):
+            adp_df = scrape_projections_df(adp_projections_url)
+            st.session_state["adp_data"] = adp_df
+
+    st.markdown("---")
+
+    if "qb_data" not in st.session_state and \
+       "flx_data" not in st.session_state and \
+       "dst_data" not in st.session_state and \
+       "k_data" not in st.session_state:
+        st.info("No data scraped yet. Click the button above to scrape projections from FantasyPros.")
+        return
 
     data_tabs = st.tabs(["DST", "FLX", "K", "QB", "ADP"])
 
