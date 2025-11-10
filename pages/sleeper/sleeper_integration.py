@@ -12,50 +12,13 @@ from plotly.subplots import make_subplots
 
 from scraper.ktc_to_csv import scrape_ktc
 
-DEFAULT_TIMEZONE = "US/Eastern"
-
 def convert_to_default_timezone(dt):
     """Convert a datetime to the default timezone"""
-    default_tz = pytz.timezone(DEFAULT_TIMEZONE)
+    default_tz = pytz.timezone(st.session_state["DEFAULT_TIMEZONE"])
     if dt.tzinfo is None:
         # If timezone-naive, assume UTC and then convert
         dt = pytz.utc.localize(dt)
     return dt.astimezone(default_tz)
-
-TEAM_COLOR_MAP = {
-    "ARI": "#97233F",
-    "ATL": "#A71930",
-    "BAL": "#241773",
-    "BUF": "#00338D",
-    "CAR": "#0085CA",
-    "CHI": "#0B162A",
-    "CIN": "#FB4F14",
-    "CLE": "#311D00",
-    "DAL": "#003594",
-    "DEN": "#002244",
-    "DET": "#0076B6",
-    "GB": "#203731",
-    "HOU": "#03202F",
-    "IND": "#002C5F",
-    "JAX": "#006778",
-    "KC": "#E31837",
-    "LAC": "#002A5E",
-    "LAR": "#003594",
-    "LV": "#000000",
-    "MIA": "#008E97",
-    "MIN": "#4F2683",
-    "NE": "#002244",
-    "NO": "#D3BC8D",
-    "NYG": "#0B2265",
-    "NYJ": "#125740",
-    "PHI": "#004C54",
-    "PIT": "#FFB612",
-    "SF": "#AA0000",
-    "SEA": "#002244",
-    "TB": "#D50A0A",
-    "TEN": "#4B92DB",
-    "WAS": "#5A1414"
-}
 
 pd.set_option('future.no_silent_downcasting', True)
 
@@ -121,7 +84,8 @@ def sleeper_integration_tab():
     
     cols = st.columns(3)
     with cols[0]:
-        sleeper_league_id = st.text_input("Enter your Sleeper League ID:", value="1180366350202068992")
+        sleeper_league_id = st.text_input("Enter your Sleeper League ID:", value=st.session_state["SLEEPER_LEAGUE_ID"])
+        st.session_state["SLEEPER_LEAGUE_ID"] = sleeper_league_id
 
     with st.expander("KeepTradeCut Data"):
         st.dataframe(keeptradecut_df)
@@ -403,7 +367,7 @@ def sleeper_integration_tab():
                     values="KTC Value",
                     title=f"KTC Value Distribution for {user} (Team → Player)",
                     color="team",
-                    color_discrete_map=TEAM_COLOR_MAP
+                    color_discrete_map=st.session_state["TEAM_COLOR_MAP"]
                 )
 
                 # Add percentage to labels
@@ -597,7 +561,7 @@ def sleeper_integration_tab():
             game_df["away_team"] = game_df["away_team"].str.strip()
 
             # Create a color mapping for games based on home team
-            game_df["color"] = game_df["home_team"].map(TEAM_COLOR_MAP)
+            game_df["color"] = game_df["home_team"].map(st.session_state["TEAM_COLOR_MAP"])
             
             # Create a grouped bar chart using plotly, that shows the number of players in each game
             # Each bar is a datetime, with a bar for each game that day
@@ -606,7 +570,7 @@ def sleeper_integration_tab():
                 x="game_time_str",
                 y="num_players",
                 color="home_team",
-                color_discrete_map=TEAM_COLOR_MAP,
+                color_discrete_map=st.session_state["TEAM_COLOR_MAP"],
                 title="Number of Players in Each Game",
                 labels={"num_players": "Number of Players", "date": "Date", "home_team": "Home Team"},
                 height=400
