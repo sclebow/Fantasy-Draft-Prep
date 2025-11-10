@@ -254,13 +254,6 @@ def process_combined_data(dst_data, flx_data, k_data, qb_data, adp_data):
     return combined_data
 
 def create_combined_data():
-    # Load data
-    st.session_state["dst_data"] = pd.read_csv("./data_tables/FantasyPros_Fantasy_Football_Projections_DST.csv")
-    st.session_state["flx_data"] = pd.read_csv("./data_tables/FantasyPros_Fantasy_Football_Projections_FLX.csv")
-    st.session_state["k_data"] = pd.read_csv("./data_tables/FantasyPros_Fantasy_Football_Projections_K.csv")
-    st.session_state["qb_data"] = pd.read_csv("./data_tables/FantasyPros_Fantasy_Football_Projections_QB.csv")
-    st.session_state["adp_data"] = pd.read_csv("./data_tables/FantasyPros_2025_Overall_ADP_Rankings.csv", on_bad_lines='skip')
-
     combined_data = process_combined_data(
         dst_data=st.session_state["dst_data"],
         flx_data=st.session_state["flx_data"],
