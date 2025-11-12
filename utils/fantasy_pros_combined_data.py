@@ -81,12 +81,16 @@ def process_combined_data(dst_data, flx_data, k_data, qb_data, adp_data):
     column_rename_dict = {
         "YDS": "RY",
         "TDS": "TRD",
-        "YDS.1": "REY",
-        "TDS.1": "RETD",
+        "YDS_1": "REY",
+        "TDS_1": "RETD",
         "FL": "FUML"
     }
 
     flx_data = flx_data.rename(columns=column_rename_dict)
+
+    flx_data["Team"] = flx_data["Player"].str.split().str[-1]
+
+    flx_data["Player"] = flx_data["Player"].str.split().str[:-1].str.join(" ")
 
     # Drop columns not in column_rename_dict
     flx_data = flx_data[["Player", "Team", "POS", "RY", "TRD", "REY", "RETD", "FUML"]]
@@ -122,10 +126,13 @@ def process_combined_data(dst_data, flx_data, k_data, qb_data, adp_data):
         "YDS": "PY",
         "TDS": "PTD",
         "INTS": "INT",
-        "YDS.1": "RY",
-        "TDS.1": "RTD",
+        "YDS_1": "RY",
+        "TDS_1": "RTD",
         "FL": "FUML"
     }
+
+    qb_data["Team"] = qb_data["Player"].str.split().str[-1]
+    qb_data["Player"] = qb_data["Player"].str.split().str[:-1].str.join(" ")
 
     qb_data = qb_data.rename(columns=column_rename_dict)
 
@@ -229,6 +236,10 @@ def process_combined_data(dst_data, flx_data, k_data, qb_data, adp_data):
     combined_data = calculate_vobp(combined_data, ROSTER_SPOTS_PER_POSITION_DICT, NUMBER_OF_TEAMS)
 
     combined_data = combined_data[["Player", "POS", "FPTS_Rank", "FPTS", "VORP", "VOBP"]]
+
+    adp_data["Bye"] = adp_data["Player Team (Bye)"].str.split().str[-1].str.strip("()")
+    adp_data["Team"] = adp_data["Player Team (Bye)"].str.split().str[:-1].str.join(" ").str.strip()
+    adp_data["Player"] = adp_data["Player Team (Bye)"].str.split().str[:-2].str.join(" ").str.strip()
 
     # Merge ADP data
     combined_data = combined_data.merge(adp_data[["Player", "AVG"]], on="Player", how="left")
