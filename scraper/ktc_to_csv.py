@@ -7,6 +7,8 @@ from tqdm import tqdm
 import sys
 from datetime import date, datetime
 import csv
+import pandas as pd
+import streamlit as st
 
 """
 Scrapes all Superflex and 1QB values for all players in the live keeptradecut database.
@@ -367,6 +369,13 @@ def make_unique(rows_data):
 
     return rows_data
 
+
+@st.cache_data(ttl=24 * 3600)  # Cache for 24 hours
+def get_keeptradecut_dataframe():
+    ktc_data = scrape_ktc()
+    df = pd.DataFrame(ktc_data)
+
+    return df
 
 """
 Main method

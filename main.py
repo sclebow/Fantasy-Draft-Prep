@@ -5,6 +5,7 @@ import streamlit as st
 
 from utils.fantasy_pros_combined_data import create_combined_data
 from scraper.fantasypros_scraper import update_session_state_with_scraped_data
+from scraper.ktc_to_csv import get_keeptradecut_dataframe
 
 st.session_state["DEFAULT_TIMEZONE"] = "US/Eastern"
 
@@ -50,6 +51,7 @@ print("Starting Fantasy Football Draft Prep App")
 
 update_session_state_with_scraped_data()
 create_combined_data()
+st.session_state["keeptradecut_df"] = get_keeptradecut_dataframe()
 
 st.set_page_config(page_title="Fantasy Football Draft Prep", layout="wide")
 st.title("Welcome to Fantasy Football Draft Prep!")

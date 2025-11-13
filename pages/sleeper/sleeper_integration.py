@@ -70,15 +70,8 @@ def get_player_value(row, keeptradecut_df, fuzzy_match=True):
         else:
             return None
 
-@st.cache_data(ttl=24 * 3600)  # Cache for 24 hours
-def get_keeptradecut_dataframe():
-    ktc_data = scrape_ktc()
-    df = pd.DataFrame(ktc_data)
-
-    return df
-
 def sleeper_integration_tab():
-    keeptradecut_df = get_keeptradecut_dataframe()
+    keeptradecut_df = st.session_state["keeptradecut_df"]
 
     st.header("Sleeper Integration")
     
